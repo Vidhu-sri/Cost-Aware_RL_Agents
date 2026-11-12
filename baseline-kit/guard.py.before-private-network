@@ -1,0 +1,120 @@
+"""Local-only interception of swegemma repository/test subprocess commands."""
+import hashlib
+import inspect
+import os
+from pathlib import Path
+import shlex
+import shutil
+import sys
+import textwrap
+
+EXPECTED_EXEC = 'b17574ad074238ed2bcb30c89ead32f60022a30743389d08762b46130561e11f'
+
+def install_guard(wheels, command_seconds=300):
+    import swegemma.sandbox.subprocess as module
+    source = textwrap.dedent(inspect.getsource(module.SubprocessManager.exec)).strip()
+    # Official source fingerprint uses the class indentation, not dedented text.
+    actual = hashlib.sha256(inspect.getsource(module.SubprocessManager.exec).rstrip().encode()).hexdigest()
+    if actual != EXPECTED_EXEC:
+        raise RuntimeError('Installed SubprocessManager.exec differs from inspected official 0.2.11 source. Refusing an unverified interception; collect its source with inspect.getsource.')
+    if not shutil.which('bwrap') or not shutil.which('prlimit'):
+        raise RuntimeError('bwrap and prlimit are required')
+    original = module.execute_subprocess_command
+    wheels = Path(wheels).resolve()
+
+    def guarded(command, cwd, env, timeout=300, *, shell=None, max_output_chars=10*1024*1024):
+        cwd = Path(cwd).resolve()
+        root = cwd.parent
+        if cwd.name != 'workspace' or not root.name.startswith('swegemma_sandbox_'):
+            raise RuntimeError(f'Unexpected sandbox working directory: {cwd}')
+        if not (root / 'venv').is_dir():
+            raise RuntimeError('Expected per-task venv missing')
+        args = ['bwrap', '--unshare-user', '--unshare-pid', '--unshare-net',
+                '--unshare-ipc', '--unshare-uts', '--die-with-parent', '--new-session',
+                '--cap-drop', 'ALL']
+        for path in ['/usr', '/bin', '/sbin', '/lib', '/lib64']:
+            if Path(path).exists():
+                args += ['--ro-bind', path, path]
+        for path in {sys.prefix, sys.base_prefix}:
+            if not Path(path).is_relative_to('/usr'):
+                args += ['--ro-bind', path, path]
+        for path in ['/etc/passwd', '/etc/group', '/etc/localtime']:
+            if Path(path).exists():
+                args += ['--ro-bind', path, path]
+        args += ['--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp']
+        # Bind after /tmp so a task root created in /tmp is not shadowed.
+        # Only this task's private directory is writable; no home/project bind.
+        args += ['--bind', str(root), str(root)]
+        if wheels.is_dir():
+            args += ['--ro-bind', str(wheels), str(wheels)]
+        # Sandbox-local hostname resolution; no external DNS.
+        hosts = root / 'sandbox-hosts'
+        hosts.write_text('127.0.0.1 localhost\n::1 localhost\n')
+        nss = root / 'sandbox-nsswitch.conf'
+        nss.write_text('hosts: files\n')
+        args += ['--ro-bind', str(hosts), '/etc/hosts',
+                 '--ro-bind', str(nss), '/etc/nsswitch.conf']
+        args += ['--chdir', str(cwd)]
+        safe = {k: str(v) for k, v in env.items() if k in {
+            'PATH', 'LANG', 'LC_ALL', 'TERM', 'VIRTUAL_ENV', 'PYTHONPATH',
+            'HOME', 'TMPDIR', 'TEST_TMPDIR', 'PYTHONNOUSERSITE'}}
+        safe.update(PIP_NO_INDEX='1', PIP_DISABLE_PIP_VERSION_CHECK='1',
+                    PIP_CONFIG_FILE='/dev/null', GIT_CONFIG_NOSYSTEM='1',
+                    GIT_CONFIG_GLOBAL='/dev/null', OMP_NUM_THREADS='1',
+                    OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1',
+                    NUMEXPR_NUM_THREADS='1', PYTHONDONTWRITEBYTECODE='1')
+        # Prefer the task checkout, including repositories using src layout.
+        source_paths = [str(cwd)]
+        if (cwd / 'src').is_dir():
+            source_paths.insert(0, str(cwd / 'src'))
+        if safe.get('PYTHONPATH'):
+            source_paths.append(safe['PYTHONPATH'])
+        safe['PYTHONPATH'] = os.pathsep.join(source_paths)
+        for k, v in safe.items():
+            args += ['--setenv', k, v]
+        # AS and file limits are per process, not aggregate job limits.
+        args += ['--', '/usr/bin/prlimit', '--as=6442450944',
+                 '--fsize=536870912', '--core=0', '--']
+        if isinstance(command, str):
+            args += ['/bin/bash', '-c', command]
+        else:
+            if shell:
+                raise RuntimeError('Unexpected shell=True with argv')
+            args += list(command)
+        return original(command=args, cwd=cwd, env=safe,
+                        timeout=min(command_seconds, timeout) if timeout is not None else command_seconds,
+                        shell=False, max_output_chars=max_output_chars)
+    module.execute_subprocess_command = guarded
+    return module
+
+def probe(module):
+    import json
+    import subprocess
+    parent_net = os.readlink('/proc/self/ns/net')
+    manager = module.SubprocessManager()
+    sid = manager.start()
+    secret = Path(manager.sandboxes[sid]['root']).parent / f'host-secret-{os.getpid()}'
+    secret.write_text('must not be visible')
+    try:
+        code = '''import json,os,socket
+out={"net":os.readlink("/proc/self/ns/net"),"interfaces":list(socket.if_nameindex()),"secret_visible":os.path.exists(SECRET)}
+for label,address in [("internet",("1.1.1.1",443)),("host_vllm",("127.0.0.1",8001))]:
+ s=socket.socket();s.settimeout(1)
+ try:s.connect(address);out[label]="CONNECTED"
+ except OSError:out[label]="blocked"
+ finally:s.close()
+print(json.dumps(out))'''.replace('SECRET', repr(str(secret)))
+        result = manager.exec(sid, 'python3 -c ' + shlex.quote(code), timeout=10)
+        if result.exit_code != 0:
+            raise RuntimeError(f'Bubblewrap probe failed: {result.stderr}')
+        out = json.loads(result.stdout.strip().splitlines()[-1])
+        assert out['net'] != parent_net, out
+        assert all(name == 'lo' for _, name in out['interfaces']), out
+        assert not out['secret_visible'], out
+        assert out['internet'] == out['host_vllm'] == 'blocked', out
+        timed = manager.exec(sid, 'sleep 30', timeout=1)
+        assert timed.exit_code == 124, timed
+        print('PASS: network namespace, hidden host file, blocked internet/model access, command timeout', flush=True)
+    finally:
+        manager.cleanup_all()
+        secret.unlink(missing_ok=True)

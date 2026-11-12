@@ -1,0 +1,12 @@
+{
+  "archive": "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/abandoned-workstreams/gitpython-ungraded-20261019/gitpython-trajectories-UNGRADED.tar.gz",
+  "archive_sha256": "9d52db1b554cd35960cb3464d2a82aea7b03c0791a11b2a34110db1acfeaff6f",
+  "archive_bytes": 533464,
+  "files_verified": 93,
+  "old_tree_allocated_bytes": 127479808,
+  "disk_before_delete": 10270654464,
+  "symlinks": [],
+  "removed_root": "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/swebench-work",
+  "disk_after_delete": 10398113792,
+  "filesystem_free_delta_bytes": 127459328
+}

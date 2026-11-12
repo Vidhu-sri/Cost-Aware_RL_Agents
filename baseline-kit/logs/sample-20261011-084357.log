@@ -1,0 +1,80 @@
+/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.AGENT_CONFIG is enabled.
+  check_feature_enabled()
+/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py:89: UserWarning: [EXPERIMENTAL] EventsCompactionConfig: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  events_compaction_config=EventsCompactionConfig(compaction_interval=15,overlap_size=2,
+  [   0.0s] 📋 System Prompt: You are an expert autonomous software engineer assigned to resolve an issue in a repository efficiently and decisively.
+  [   0.0s] 🎯 Task Prompt: You are evaluating a software engineering task for repository fastapi/fastapi.
+  [  40.0s] 💭 (2668 chars) "The user wants to "Automate release preparation".
+Looking at the problem statement, it's a Pull Request description. It ..."
+  [  40.0s] 🔧 run_command grep -r "release" . | grep ".py" | head -n 20
+  [  40.1s]   → ./.pre-commit-config.yaml:        entry: uv run python scripts/add_latest_release_date.py
+  [  49.5s] 💭 (510 chars) "The `scripts/add_latest_release_date.py` seems relevant.
+
+Wait, if I look at the problem statement again, it says "Autom..."
+  [  49.5s] 📖 read_file (scripts/add_latest_release_date.py)
+  [  49.6s]   ✓ {'status': 'ok', 'filepath': 'scripts/add_latest_release_date.py', 'content': '"""Check release-notes.md and add today\'…
+  [  59.2s] 💭 (611 chars) "This script just adds the date to the latest release header in `release-notes.md`.
+
+What else is involved in "release pr..."
+  [  59.2s] 📖 read_file (scripts/docs.py)
+  [  59.2s]   ✓ {'status': 'ok', 'filepath': 'scripts/docs.py', 'content': 'import json\nimport logging\nimport os\nimport re\nimport sh…
+╭──────────────────────────────────────────────────────────────────────────────────────────────── Latest Detail ────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   📖 read_file                                                                                                                                                                                                │
+│                                                                                                                                                                                                               │
+│   Path:                                                                                                                                                                                                       │
+│     scripts/docs.py                                                                                                                                                                                           │
+│                                                                                                                                                                                                               │
+│   Response:                                                                                                                                                                                                   │
+│     {'status': 'ok', 'filepath': 'scripts/docs.py', 'content': 'import json\nimport logging\nimport os\nimport re\nimport shutil\nimport subprocess\nfrom html.parser import HTMLParser\nfrom http.server     │
+│ import HTTPServer, SimpleHTTPRequestHandler\nfrom multiprocessing import Pool\nfrom pathlib import Path\nfrom typing import Any\n\nimport typer\nimport yaml\nfrom jinja2 import Template\nfrom ruff.__main__ │
+│ import find_ruff_bin\nfrom slugify import slugify as py_slugify\n\nlogging.basicConfig(level=logging.INFO)\n\nSUPPORTED_LANGS = {\n    "de",\n    "en",\n    "es",\n    "fr",\n    "ja",\n    "ko",\n         │
+│ "pt",\n    "ru",\n    "tr",\n    "uk",\n    "zh",\n    "zh-hant",\n}\n\n\napp = typer.Typer()\n\nmkdocs_name = "mkdocs.yml"\n\nnon_translated_sections = (\n    f"reference{os.sep}",\n                       │
+│ "release-notes.md",\n    "fastapi-people.md",\n    "external-links.md",\n    "newsletter.md",\n    "management-tasks.md",\n    "management.md",\n    "contributing.md",\n                                     │
+│ "translations.md",\n)\n\ndocs_path = Path("docs")\nen_docs_path = Path("docs/en")\nen_config_path: Path = en_docs_path / mkdocs_name\nsite_path = Path("site").absolute()\nzensical_src_path =                │
+│ Path("site_zensical_src").absolute()\n\nheader_pattern = re.compile(r"^(#{1,6}) (.+?)(?:\\s*\\{\\s*(#.*)\\s*\\})?\\s*$")\nheader_with_permalink_pattern = re.compile(r"^(#{1,6})                              │
+│ (.+?)(\\s*\\{\\s*#.*\\s*\\})\\s*$")\ncode_block3_pattern = re.compile(r"^\\s*```")\ncode_block4_pattern = re.compile(r"^\\s*````")\n\n\n# Pattern to match markdown links: [text](url) →                      │
+│ text\nmd_link_pattern = re.compile(r"\\[([^\\]]+)\\]\\([^)]+\\)")\n\n\ndef strip_markdown_links(text: str) -> str:\n    """Replace markdown links with just their visible text."""\n    return                │
+│ md_link_pattern.sub(r"\\1", text)\n\n\nclass VisibleTextExtractor(HTMLParser):\n    """Extract visible text from a string with HTML tags."""\n\n    def __init__(self):\n        super().__init__()\n         │
+│ self.text_parts = []\n\n    def handle_data(self, data):\n        self.text_parts.append(data)\n\n    def extract_visible_text(self, html: str) -> str:\n        self.reset()\n        self.text_parts = []\n │
+│ self.feed(html)\n        return "".join(self.text_parts).strip()\n\n\ndef slugify(text: str) -> str:\n    return py_slugify(\n        text,\n        replacements=[\n            ("`", ""),  # `dict`s ->     │
+│ dicts\n            ("\'s", "s"),  # it\'s -> its\n            ("\'t", "t"),  # don\'t -> dont\n            ("**", ""),  # **FastAPI**s -> FastAPIs\n        ],\n    )\n\n\ndef get_en_config() -> dict[str,   │
+│ Any]:\n    return yaml.unsafe_load(en_config_path.read_text(encoding="utf-8"))\n\n\ndef get_lang_paths() -> list[Path]:\n    return sorted(docs_path.iterdir())\n\n\ndef lang_callback(lang: str | None) ->   │
+│ str | None:\n    if lang is None:\n        return None\n    lang = lang.lower()\n    return lang\n\n\ndef complete_existing_lang(incomplete: str):\n    lang_path: Path\n    for lang_path in                 │
+│ get_lang_paths():\n        if lang_path.is_dir() and lang_path.name.startswith(incomplete):\n            yield lang_path.name\n\n\n@app.callback()\ndef callback() -> None:\n    # For MacOS with Cairo\n     │
+│ os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "/opt/homebrew/lib"\n\n\n@app.command()\ndef new_lang(lang: str = typer.Argument(..., callback=lang_callback)):\n    """\n    Generate a new docs translation      │
+│ directory for the language LANG.\n    """\n    new_path: Path = Path("docs") / lang\n    if new_path.exists():\n        typer.echo(f"The language was already created: {lang}")\n        raise                │
+│ typer.Abort()\n    new_path.mkdir()\n    new_llm_prompt_path: Path = new_path / "llm-prompt.md"\n    new_llm_prompt_path.write_text("", encoding="utf-8")\n    print(f"Successfully initialized:              │
+│ {new_path}")\n    update_languages()\n\n\n@app.command()\ndef build_lang(\n    lang: str = typer.Argument(\n        ..., callback=lang_callback, autocompletion=complete_existing_lang', 'start_line': 1,     │
+│ 'end_line': 150, 'total_lines': 862, 'is_truncated': True}                                                                                                                                                    │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────────── SWE-gemma Agent Evaluator ──────────────────────────────────────────────────────────────────────────────────────────╮
+│   fastapi_15661 (fastapi/fastapi)  ·  1m 00s                                                                                                                                                                  │
+│                                                                                                                                                                                                               │
+│          Tools ━━━━━━╸                  3 / 10  (7 left)                                                                                                                                                      │
+│           Cost ━━━━━━━━━━━━━━━━━━━━━━   $0.00 (Unlimited)                                                                                                                                                     │
+│           Time ━━━━━━━━━━━━━━━━━━━━━╸   1.0m / 1m  (0.0m left)                                                                                                                                                │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯Task fastapi_15661 agent timed out.
+Task fastapi_15661 completed without explicit submit_patch call and no working tree modifications.
+
+                              Evaluation Results Summary                               
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Task ID / Instance ┃ Resolved ┃ Duration ┃ Error                                    ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ fastapi_15661      │   ✗ NO   │    63.9s │ Agent exceeded session timeout (1.0 min) │
+└────────────────────┴──────────┴──────────┴──────────────────────────────────────────┘
+Total Resolved: 0/1 (0.00%)
+
+{
+  "total_tasks": 1,
+  "resolved": 0,
+  "resolution_rate": 0.0,
+  "by_repo": {
+    "fastapi/fastapi": {
+      "total": 1,
+      "resolved": 0,
+      "rate": 0.0
+    }
+  },
+  "errors": 1
+}
+{"watchdog_reason": null, "peak_rss_gib": 0.4122810363769531, "returncode": 0}

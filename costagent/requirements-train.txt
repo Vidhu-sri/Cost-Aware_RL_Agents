@@ -1,0 +1,11 @@
+torch
+transformers>=4.57
+peft>=0.17
+bitsandbytes>=0.46.1
+accelerate
+safetensors
+numpy
+scipy
+matplotlib
+pytest
+tokenizers

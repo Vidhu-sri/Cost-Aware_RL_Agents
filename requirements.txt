@@ -1,0 +1,13 @@
+pytest
+pytest-timeout==2.1.0
+typer
+pdm-backend
+setuptools
+wheel
+poetry-core
+hatchling
+flit-core
+editables
+kaggle
+uv
+tqdm

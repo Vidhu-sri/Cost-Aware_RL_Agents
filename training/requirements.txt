@@ -1,0 +1,16 @@
+torch
+transformers
+peft
+trl
+accelerate
+datasets
+pandas
+scipy
+statsmodels
+scikit-learn
+networkx
+unidiff
+pyarrow
+matplotlib
+pytest
+bitsandbytes

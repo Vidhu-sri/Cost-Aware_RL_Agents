@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 119, in <module>
+    main()
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 52, in main
+    raise RuntimeError(f'Results already exist: {result_dir}; choose a fresh label')
+RuntimeError: Results already exist: /home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/results/sample-05-reference; choose a fresh label
+{"watchdog_reason": null, "peak_rss_gib": 0.34264373779296875, "returncode": 1}

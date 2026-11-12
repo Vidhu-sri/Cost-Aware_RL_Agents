@@ -1,0 +1,15 @@
+{
+  "candidate": "DPO epoch 5",
+  "archive": "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/submission.zip",
+  "archive_sha256": "8520c647932ce0d483202739ef3ce270583cf221312b17078917b395f1a0e148",
+  "source_checkpoint": "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/costagent/artifacts/mixed-temperature-v1/dpo/epoch-005",
+  "local_evaluation": "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/costagent/artifacts/mixed-temperature-v1/evaluation/paper40-20261106a-DPO-test-seed-42",
+  "verified_resolves": 9,
+  "tasks_attempted": 40,
+  "agent_budget_minutes": 5,
+  "max_tool_calls": 100,
+  "max_turns": 50,
+  "command_timeout_seconds": 60,
+  "sampling_seed": 42,
+  "packaging_validation": "zip CRC clean; installed adk_submission compiler passed"
+}

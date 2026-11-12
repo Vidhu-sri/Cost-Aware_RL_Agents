@@ -1,0 +1,44 @@
+/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.AGENT_CONFIG is enabled.
+  check_feature_enabled()
+/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py:89: UserWarning: [EXPERIMENTAL] EventsCompactionConfig: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  events_compaction_config=EventsCompactionConfig(compaction_interval=15,overlap_size=2,
+Error during sandbox execution for task fastapi_15661
+Traceback (most recent call last):
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/swegemma/harness/agent_runner.py", line 578, in run_agent_sandbox
+    agent: BaseAgent = compile_submission(
+                       ^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/adk_submission/compiler.py", line 203, in compile_submission
+    return _compile_agent(config.root, ctx)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/adk_submission/compiler.py", line 232, in _compile_agent
+    return compile_llm_agent(config, ctx, _compile_agent)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/adk_submission/builders/llm.py", line 71, in compile_llm_agent
+    model = resolve_model(config, ctx)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/adk_submission/resolvers/models.py", line 53, in resolve_model
+    raise AdapterNotFoundError(config.adapter, available=available)
+adk_submission.errors.AdapterNotFoundError: Adapter 'main_lora' not found in discovered adapters. Available adapters: none
+
+                                                              Evaluation Results Summary                                                              
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Task ID / Instance ┃ Resolved ┃ Duration ┃ Error                                                                                                   ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ fastapi_15661      │   ✗ NO   │     4.4s │ Sandbox execution error: Adapter 'main_lora' not found in discovered adapters. Available adapters: none │
+└────────────────────┴──────────┴──────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Total Resolved: 0/1 (0.00%)
+
+{
+  "total_tasks": 1,
+  "resolved": 0,
+  "resolution_rate": 0.0,
+  "by_repo": {
+    "fastapi/fastapi": {
+      "total": 1,
+      "resolved": 0,
+      "rate": 0.0
+    }
+  },
+  "errors": 1
+}
+{"watchdog_reason": null, "peak_rss_gib": 0.4138145446777344, "returncode": 0}

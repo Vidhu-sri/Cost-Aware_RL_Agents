@@ -1,0 +1,114 @@
+import argparse
+import asyncio
+import hashlib
+import importlib.metadata as md
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import urllib.request
+
+for key, value in {'LITELLM_LOCAL_MODEL_COST_MAP':'True', 'OTEL_SDK_DISABLED':'true',
+                   'LITELLM_TELEMETRY':'False','HF_HUB_OFFLINE':'1',
+                   'TRANSFORMERS_OFFLINE':'1'}.items():
+    os.environ[key] = value
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--data', type=Path, required=True)
+    p.add_argument('--mode', choices=['probe','reference','baseline'], default='probe')
+    p.add_argument('--task-id')
+    p.add_argument('--label', default='sample-01')
+    args = p.parse_args()
+    data = args.data.resolve()
+    kit = Path(__file__).resolve().parent
+    if '/' in args.label or args.label in {'.','..'}:
+        p.error('label must be a simple directory name')
+    from guard import install_guard, probe
+    sandbox_module = install_guard(data / 'wheels')
+    if args.mode == 'probe':
+        probe(sandbox_module)
+        return
+    import litellm
+    import yaml
+    from adk_submission import ModelRegistry
+    from google.adk.models.lite_llm import LiteLlm
+    from google.adk.agents.context_cache_config import ContextCacheConfig
+    from google.adk.apps._configs import EventsCompactionConfig
+    from adk_eval_core import SessionTrace
+    from swegemma.config import EvalConfig, build_submission_limits
+    from swegemma.evaluate import Evaluator
+    from swegemma.models import load_tasks
+    litellm.drop_params = True
+    litellm.telemetry = False
+    tasks = load_tasks(data / 'tasks.jsonl')
+    task_id = args.task_id or tasks[0].instance_id
+    selected = [t for t in tasks if t.instance_id == task_id]
+    if len(selected) != 1:
+        raise RuntimeError('Task ID must identify exactly one published task')
+    result_dir = kit / 'results' / f'{args.label}-{args.mode}'
+    if result_dir.exists():
+        raise RuntimeError(f'Results already exist: {result_dir}; choose a fresh label')
+    result_dir.mkdir(parents=True)
+    agent = result_dir / 'agent_snapshot'
+    shutil.copytree(data / 'sample_submission', agent)
+    raw = yaml.safe_load((agent / 'eval_config.yaml').read_text())
+    budget = raw.get('evaluation', raw)
+    models = ModelRegistry()
+    alias = 'gemma-4-31b-it-qat-w4a16-ct'
+    models.register(alias, LiteLlm(model='openai/' + alias,
+                    api_base='http://127.0.0.1:8001/v1', api_key='EMPTY', num_retries=5))
+
+    for adapter_name in ("main_lora", "tool_lora"):
+        models.register(
+            "adapter:" + adapter_name,
+            LiteLlm(model="openai/" + adapter_name,
+                    api_base="http://127.0.0.1:8001/v1",
+                    api_key="EMPTY", num_retries=5))
+    if args.mode == 'baseline':
+        with urllib.request.urlopen('http://127.0.0.1:8001/v1/models', timeout=10) as response:
+            served = json.load(response)
+        if alias not in [m['id'] for m in served['data']]:
+            raise RuntimeError('Expected model alias not served')
+        (result_dir / 'served-models.json').write_text(json.dumps(served, indent=2))
+    limits, constraints = build_submission_limits()
+    cfg = EvalConfig(tasks_path=data/'tasks.jsonl', snapshots_dir=data/'snapshots',
+        results_dir=result_dir, submission_dir=agent, models=models, sandbox='subprocess',
+        timeout_seconds=int(budget.get('timeout_seconds',300)),
+        max_tool_calls=100,
+        max_time_minutes=5,
+        max_turns=budget.get('max_turns',budget.get('max_llm_calls')),
+        limits=limits, generation_constraints=constraints,
+        context_cache_config=ContextCacheConfig(min_tokens=2048,ttl_seconds=1800,cache_intervals=10),
+        events_compaction_config=EventsCompactionConfig(compaction_interval=15,overlap_size=2,
+                                      token_threshold=14336,event_retention_size=5),
+        graph_dir=str(data/'graphs'), embeddings_dir=str(data/'embeddings'),
+        wheels_dir=data/'wheels', task_ids=[task_id], concurrency=1, display_mode='single')
+    evaluator = Evaluator(cfg)
+    # All task subprocesses go through guard.py, including Phase 2 verification.
+    if args.mode == 'reference':
+        async def reference(task, *unused, **kwargs):
+            if not task.patch.strip():
+                raise RuntimeError('No published reference patch for this task')
+            return task.patch, None, SessionTrace()
+        evaluator._run_agent_sandbox = reference
+    versions = {n: md.version(n) for n in ['swegemma','adk-submission','adk-eval-core','google-adk','vllm']}
+    manifest = {'mode':args.mode,'task_id':task_id,'versions':versions,'evaluation':budget,
+        'agent_sha256':{str(f.relative_to(agent)): hashlib.sha256(f.read_bytes()).hexdigest()
+                        for f in agent.rglob('*') if f.is_file()},
+        'hardware':'single A100 80GB; shared server', 'sandbox':'per-command Bubblewrap; no delegated cgroups'}
+    (result_dir/'run_manifest.json').write_text(json.dumps(manifest,indent=2))
+    try:
+        asyncio.run(evaluator.run())
+    finally:
+        evaluator.sandbox.cleanup_all()
+    summary = json.loads((result_dir/'summary.json').read_text())
+    print(json.dumps(summary, indent=2))
+    if args.mode == 'reference':
+        rows = [json.loads(line) for line in (result_dir/'task_results.jsonl').read_text().splitlines() if line.strip()]
+        if not rows or not all(r.get('resolved') for r in rows):
+            raise RuntimeError('Reference patch did not pass: diagnose verification/environment before interpreting agent results')
+
+if __name__ == '__main__':
+    main()

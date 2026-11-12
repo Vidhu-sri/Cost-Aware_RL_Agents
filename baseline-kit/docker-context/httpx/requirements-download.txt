@@ -1,0 +1,3 @@
+# Root requirements.txt pins these test tools. Python 3.13 binary wheels only.
+pytest==8.3.5
+pytest-cov==6.1.1

@@ -2,7 +2,6 @@
 data/
 results/
 tables/
-*.safetensors
 
 # Python and uv artifacts
 __pycache__/
@@ -10,3 +9,28 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+# Derived training outputs and isolated environment
+artifacts/
+envs/train/
+/costagent/artifacts
+/costagent/results
+
+# Large model weights and generated bundles; publish adapter weights on HF instead
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.gguf
+*.bin
+*.zip
+/gemma-4-31b-it-qat-w4a16-ct/
+/submission.zip
+
+# Downloaded artifacts stay outside Git; dataset and adapter locations: ARTIFACTS.md.
+/swe-rebench-work/metadata/train.parquet
+/baseline-kit/cuda-compat-local/
+
+# Per-run logs and pid records are retained locally, not committed
+costagent/logs/*.log
+costagent/logs/*.pid

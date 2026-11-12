@@ -1,0 +1,84 @@
+Downloading 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Download already complete (1689 bytes).
+Downloading 8 files:  12%|█▎        | 1/8 [00:01<00:07,  1.13s/it]Download already complete (18711 bytes).
+Download already complete (2741 bytes).
+Downloading 8 files:  38%|███▊      | 3/8 [00:01<00:03,  1.52it/s]Download already complete (16934 bytes).
+Download already complete (28499 bytes).
+Downloading 8 files:  62%|██████▎   | 5/8 [00:02<00:01,  2.05it/s]Download already complete (208 bytes).
+Resuming download from 273678336 bytes (22991674112 bytes left)...
+Resuming download to /home/mahesh/.cache/kagglehub/models/google/gemma-4/other/gemma-4-31b-it-qat-w4a16-ct/2/model.safetensors (273678336/23265352448) bytes left.
+
+  1%|          | 261M/21.7G [00:00<?, ?B/s][A
+  1%|          | 262M/21.7G [00:01<11:24:18, 560kB/s][A
+  1%|          | 263M/21.7G [00:02<5:32:33, 1.15MB/s][A
+  1%|          | 264M/21.7G [00:02<4:34:48, 1.39MB/s][ADownload already complete (32169626 bytes).
+Downloading 8 files:  88%|████████▊ | 7/8 [00:05<00:00,  1.19it/s]
+  1%|          | 267M/21.7G [00:02<1:41:13, 3.78MB/s][A
+  1%|          | 270M/21.7G [00:02<58:50, 6.51MB/s]  [A
+  1%|          | 272M/21.7G [00:03<47:02, 8.14MB/s][A
+  1%|          | 275M/21.7G [00:03<39:41, 9.65MB/s][A
+  1%|▏         | 279M/21.7G [00:03<32:51, 11.6MB/s][ADownloading 8 files:  88%|████████▊ | 7/8 [00:06<00:00,  1.02it/s]
+
+  1%|▏         | 283M/21.7G [00:03<30:07, 12.7MB/s][A
+  1%|▏         | 286M/21.7G [00:04<28:52, 13.3MB/s][A
+  1%|▏         | 289M/21.7G [00:04<25:12, 15.2MB/s][A
+  1%|▏         | 291M/21.7G [00:04<26:53, 14.2MB/s][A
+  1%|▏         | 293M/21.7G [00:04<25:15, 15.1MB/s][A
+  1%|▏         | 295M/21.7G [00:04<25:51, 14.8MB/s][A
+  1%|▏         | 297M/21.7G [00:04<27:38, 13.8MB/s][A
+  1%|▏         | 300M/21.7G [00:04<22:57, 16.7MB/s][A
+  1%|▏         | 302M/21.7G [00:05<26:24, 14.5MB/s][A
+  1%|▏         | 304M/21.7G [00:05<29:33, 12.9MB/s][A
+  1%|▏         | 306M/21.7G [00:05<28:56, 13.2MB/s][A
+  1%|▏         | 308M/21.7G [00:05<26:06, 14.6MB/s][A
+  1%|▏         | 311M/21.7G [00:05<22:40, 16.9MB/s][A
+  1%|▏         | 313M/21.7G [00:05<26:02, 14.7MB/s][A
+  1%|▏         | 315M/21.7G [00:06<25:57, 14.7MB/s][A
+  1%|▏         | 317M/21.7G [00:06<24:45, 15.4MB/s][ATraceback (most recent call last):
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/tqdm/contrib/concurrent.py", line 163, in _executor_map
+    return list(ex.map(
+           ^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/concurrent/futures/_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/concurrent/futures/_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/concurrent/futures/_base.py", line 451, in result
+    self._condition.wait(timeout)
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/threading.py", line 355, in wait
+    waiter.acquire()
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/download_model.py", line 7, in <module>
+    root = Path(kagglehub.model_download(handle)).resolve()
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/kagglehub/models.py", line 38, in model_download
+    path, _ = registry.model_resolver(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/kagglehub/registry.py", line 28, in __call__
+    return impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/kagglehub/resolver.py", line 35, in __call__
+    path, version = self._resolve(
+                    ^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/kagglehub/http_resolver.py", line 231, in _resolve
+    thread_map(
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/tqdm/contrib/concurrent.py", line 191, in thread_map
+    return _executor_map(ThreadPoolExecutor, fn, *iterables, **tqdm_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/tqdm/contrib/concurrent.py", line 151, in _executor_map
+    with PoolExecutor(max_workers=max_workers, initializer=_initializer, initargs=_initargs,
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/concurrent/futures/_base.py", line 647, in __exit__
+    self.shutdown(wait=True)
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/concurrent/futures/thread.py", line 239, in shutdown
+    t.join()
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/threading.py", line 1149, in join
+    self._wait_for_tstate_lock()
+  File "/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/threading.py", line 1169, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

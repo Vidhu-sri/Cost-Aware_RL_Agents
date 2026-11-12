@@ -1,0 +1,3 @@
+[submodule "swe-rebench-work/publisher-harness"]
+	path = swe-rebench-work/publisher-harness
+	url = https://github.com/SWE-rebench/SWE-rebench-V2.git

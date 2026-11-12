@@ -1,0 +1,40 @@
+{
+  "model": "gemma-4-31b-it-qat-w4a16-ct",
+  "lora": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.05,
+    "targets": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "dpo": {
+    "beta": 0.1,
+    "reference": "R2_RFT_adapter",
+    "nll_alpha": 1.0,
+    "learning_rate": 1e-05,
+    "grad_accum": 8
+  },
+  "grpo": {
+    "group_size": 16,
+    "epsilon": 0.2,
+    "beta": 0.04,
+    "epochs": 1,
+    "learning_rate": 1e-05,
+    "minibatch_turns": 8,
+    "gpu_handoff": "sequential_unload"
+  },
+  "graph": {
+    "lambda": 0.5,
+    "eta": 0.1,
+    "gamma": 1.0,
+    "gamma_g": 0.5
+  },
+  "max_length": 32768
+}

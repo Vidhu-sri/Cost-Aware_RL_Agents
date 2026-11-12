@@ -1,0 +1,20 @@
+{
+  "agent_snapshot/adapters/main_lora/adapter_config.json": "75a46da2db7f3c70442e5c728f64059aff52cf64174cee7aeb3a4ec37f6e78fb",
+  "agent_snapshot/adapters/main_lora/adapter_model.safetensors": "dcbedd989af34f5201a39606e0bd4014d351a29162dd96da418782cbbe487ad9",
+  "agent_snapshot/adapters/tool_lora/adapter_config.json": "75a46da2db7f3c70442e5c728f64059aff52cf64174cee7aeb3a4ec37f6e78fb",
+  "agent_snapshot/adapters/tool_lora/adapter_model.safetensors": "dcbedd989af34f5201a39606e0bd4014d351a29162dd96da418782cbbe487ad9",
+  "agent_snapshot/agent.yaml": "c7fbbbbdc44778419be8e9f53a85800eeb17d0cf151e0846c46e107401b72034",
+  "agent_snapshot/configs/sampling.yaml": "3dab0b2506dae34ce92fef7b380d6073729104b23fe2cf66d44ac1d2f213aa6a",
+  "agent_snapshot/eval_config.yaml": "adb486b67535fa59b427b79d44dafc131176f1f1964d184e16046ed520ede02d",
+  "agent_snapshot/prompts/analyzer.md": "c762b062032cc8463015e589ad8b4f0e17296062e1b0ff1e78712eef9f5e2d43",
+  "agent_snapshot/prompts/system.md": "f1cbf7943ee9687382321b1dfd9cd88581d608c1c8b8e6ea61a763bd1a3234af",
+  "agent_snapshot/sub_agents/code_analyzer.yaml": "7a764798e36cc68aa38900256245e4aed969b5439b992c7da4105b6ebcb7e62b",
+  "logs/requests_7505.log": "cc87fdaba849277fe7719d78e015603a1114cc976eab287f43f40794ac2b2657",
+  "patches/requests_7505.patch": "54f4b610e4125289217615ae8e9927e5cc8af88967b0c09e9b6a198b62249e36",
+  "run_manifest.json": "2c3061a2ebd913965864440ab4f9f38f6bab8003bb955719eaf89bb7ba6c5df0",
+  "served-models.json": "26073aed2b5b0e89847a10949b752f640963e6f4758facdf4920f575d218f071",
+  "summary.json": "239e5332307a87ef1c2b7a4f6ea3a09375dfc1ebcb0f14eef094a767915c8641",
+  "task_results.jsonl": "7cd27d6e9f0715a64b2d26289f94a2d5caa205ec44972b31aeff159ee23240d8",
+  "test_outputs/requests_7505.log": "9c96e5a8e15020b5b429cbb96a559b451c56bac782659689951e0f0e058f3628",
+  "traces/trace_requests_7505.json": "c91b9a53bd4665343e20ce4d40339d3f76fd334e8b763bdf6aa4c7866fa698be"
+}

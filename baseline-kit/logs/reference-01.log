@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 111, in <module>
+    main()
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 57, in main
+    raise RuntimeError('Expected sample baseline without adapters')
+RuntimeError: Expected sample baseline without adapters
+{"watchdog_reason": null, "peak_rss_gib": 0.3351593017578125, "returncode": 1}

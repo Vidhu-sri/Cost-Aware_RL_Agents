@@ -1,0 +1,33 @@
+/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.AGENT_CONFIG is enabled.
+  check_feature_enabled()
+/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py:89: UserWarning: [EXPERIMENTAL] EventsCompactionConfig: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  events_compaction_config=EventsCompactionConfig(compaction_interval=15,overlap_size=2,
+
+         Evaluation Results Summary         
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Task ID / Instance ┃ Resolved ┃ Duration ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩
+│ fastapi_15661      │   ✗ NO   │     4.2s │
+└────────────────────┴──────────┴──────────┘
+Total Resolved: 0/1 (0.00%)
+
+{
+  "total_tasks": 1,
+  "resolved": 0,
+  "resolution_rate": 0.0,
+  "by_repo": {
+    "fastapi/fastapi": {
+      "total": 1,
+      "resolved": 0,
+      "rate": 0.0
+    }
+  },
+  "errors": 0
+}
+Traceback (most recent call last):
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 119, in <module>
+    main()
+  File "/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py", line 116, in main
+    raise RuntimeError('Reference patch did not pass: diagnose verification/environment before interpreting agent results')
+RuntimeError: Reference patch did not pass: diagnose verification/environment before interpreting agent results
+{"watchdog_reason": null, "peak_rss_gib": 0.4175300598144531, "returncode": 1}

@@ -1,0 +1,53 @@
+/home/mahesh/miniconda3/envs/gemma-harness/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.AGENT_CONFIG is enabled.
+  check_feature_enabled()
+/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit/run_baseline.py:84: UserWarning: [EXPERIMENTAL] EventsCompactionConfig: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  events_compaction_config=EventsCompactionConfig(compaction_interval=15,overlap_size=2,
+  [   0.0s] 📋 System Prompt: You are an expert autonomous software engineer assigned to resolve an issue in a repository efficiently and decisively.
+  [   0.0s] 🎯 Task Prompt: You are evaluating a software engineering task for repository fastapi/fastapi.
+╭──────────────────────────────────────────────────────────────────────────────────────────────── Latest Detail ────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   🎯 Task Prompt                                                                                                                                                                                              │
+│     ... (159 earlier lines)                                                                                                                                                                                   │
+│     ./scripts/sponsors.py                                                                                                                                                                                     │
+│     ./scripts/test-cov-html.sh                                                                                                                                                                                │
+│     ./scripts/test-cov.sh                                                                                                                                                                                     │
+│     ./scripts/tests                                                                                                                                                                                           │
+│     ./scripts/test.sh                                                                                                                                                                                         │
+│     ./scripts/tests/test_translation_fixer                                                                                                                                                                    │
+│     ./scripts/topic_repos.py                                                                                                                                                                                  │
+│     ./scripts/translate.py                                                                                                                                                                                    │
+│     ./scripts/translation_fixer.py                                                                                                                                                                            │
+│     ./tests                                                                                                                                                                                                   │
+│     ./uv.lock                                                                                                                                                                                                 │
+│     ```                                                                                                                                                                                                       │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────────── SWE-gemma Agent Evaluator ──────────────────────────────────────────────────────────────────────────────────────────╮
+│   fastapi_15661 (fastapi/fastapi)  ·  1m 00s                                                                                                                                                                  │
+│                                                                                                                                                                                                               │
+│          Tools                          0 / 10  (10 left)                                                                                                                                                     │
+│           Cost ━━━━━━━━━━━━━━━━━━━━━━   $0.00 (Unlimited)                                                                                                                                                     │
+│           Time ━━━━━━━━━━━━━━━━━━━━━━   1.0m / 1m  (0.0m left)                                                                                                                                                │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯Task fastapi_15661 agent timed out.
+Task fastapi_15661 completed without explicit submit_patch call and no working tree modifications.
+
+                              Evaluation Results Summary                               
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Task ID / Instance ┃ Resolved ┃ Duration ┃ Error                                    ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ fastapi_15661      │   ✗ NO   │    63.8s │ Agent exceeded session timeout (1.0 min) │
+└────────────────────┴──────────┴──────────┴──────────────────────────────────────────┘
+Total Resolved: 0/1 (0.00%)
+
+{
+  "total_tasks": 1,
+  "resolved": 0,
+  "resolution_rate": 0.0,
+  "by_repo": {
+    "fastapi/fastapi": {
+      "total": 1,
+      "resolved": 0,
+      "rate": 0.0
+    }
+  },
+  "errors": 1
+}
+{"watchdog_reason": null, "peak_rss_gib": 0.4293479919433594, "returncode": 0}

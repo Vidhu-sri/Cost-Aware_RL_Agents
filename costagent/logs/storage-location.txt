@@ -1,0 +1,2 @@
+Generated artifacts/results and newly installed gdac GPU libraries are on /tmp. Copy final checkpoints to persistent storage before /tmp cleanup or reboot.
+/tmp/costagent-pipeline-20261102
