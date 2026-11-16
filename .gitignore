@@ -34,3 +34,7 @@ envs/train/
 # Per-run logs and pid records are retained locally, not committed
 costagent/logs/*.log
 costagent/logs/*.pid
+
+# Confirmatory execution logs
+/logs/confirmatory.log
+/logs/confirmatory.pid
