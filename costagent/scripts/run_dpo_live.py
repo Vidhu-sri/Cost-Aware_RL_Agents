@@ -328,6 +328,7 @@ def run_attempt(server, tid, arm, smoke=False):
     if path.exists():
         raise RuntimeError(f"Incomplete attempt slot preserved; inspect before resume: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
+    path.mkdir()
     result_dir = path / "evaluation"
     env = os.environ.copy()
     for name in ("COSTAGENT_ROUTER", "COSTAGENT_METHOD_ROUTER",
