@@ -27,6 +27,7 @@ import psutil
 
 KIT = Path('/home/mahesh/mahesh/tmp/Gemma4_Developer_Agent/baseline-kit')
 ROOT = KIT.parent
+PKG = ROOT / "costagent"
 DATA = ROOT / "data"
 PATCH = KIT / "results/requests-agent-20261012-095650-baseline/patches/requests_7505.patch"
 LABEL_KEY = "gemma.local.verification.run"
@@ -284,14 +285,43 @@ def worker(args, result_dir):
                 served = json.load(response)
             served_ids = {model["id"] for model in served["data"]}
             expected_ids = {MODEL_ALIAS, "main_lora", "tool_lora"}
+            live_enabled = os.environ.get("COSTAGENT_DPO_LIVE") == "1"
+            live_arm = os.environ.get("COSTAGENT_DPO_LIVE_ARM") if live_enabled else None
+            if live_enabled:
+                if live_arm not in {"A0", "DPO"}:
+                    raise RuntimeError(f"Invalid DPO live arm: {live_arm!r}")
+                expected_ids.add("dpo_lora")
             if router_version == "method-v1":
                 expected_ids.update({"rft_lora", "dpo_lora", "sdpo_lora"})
             if not expected_ids <= served_ids:
                 raise RuntimeError(f"Model server missing: {sorted(expected_ids - served_ids)}")
             (result_dir / "served_models.json").write_text(json.dumps(served, indent=2) + "\n")
 
+            live_recorder = None
+            if live_enabled:
+                from dpo_live_instrumentation import LiveRecorder
+                dpo_path = (PKG / "artifacts/mixed-temperature-v1/dpo/epoch-005").resolve()
+                dpo_id = next(m for m in served["data"] if m["id"] == "dpo_lora")
+                if Path(dpo_id["root"]).resolve() != dpo_path:
+                    raise RuntimeError(f"DPO served path mismatch: {dpo_id['root']} != {dpo_path}")
+                dpo_identity = {
+                    "path": str(dpo_path),
+                    "adapter_config_sha256": sha256(dpo_path / "adapter_config.json"),
+                    "adapter_model_sha256": sha256(dpo_path / "adapter_model.safetensors"),
+                }
+                # The durable prereg hash values are also enforced by the batch
+                # controller; record the serving identity here for every slot.
+                (result_dir / "dpo_adapter_identity.json").write_text(
+                    json.dumps(dpo_identity, indent=2) + "\n")
+
             agent_dir = result_dir / "agent_snapshot"
             shutil.copytree(Path(os.environ["COSTAGENT_SUBMISSION"]), agent_dir)
+            if live_arm == "DPO":
+                agent_yaml = agent_dir / "agent.yaml"
+                agent_text = agent_yaml.read_text()
+                if agent_text.count("adapter: main_lora") != 1:
+                    raise RuntimeError("Expected one sample main_lora adapter declaration")
+                agent_yaml.write_text(agent_text.replace("adapter: main_lora", "adapter: dpo_lora", 1))
             sampling_path = agent_dir / "configs/sampling.yaml"
             sampling = yaml.safe_load(sampling_path.read_text())
             sampling['temperature'] = float(os.environ.get('COSTAGENT_TEMPERATURE', sampling.get('temperature', 0.2)))
@@ -334,13 +364,29 @@ def worker(args, result_dir):
             litellm.drop_params = True
             litellm.telemetry = False
             models = ModelRegistry()
-            models.register(MODEL_ALIAS, LiteLlm(
-                model="openai/" + MODEL_ALIAS, api_base=MODEL_URL,
-                api_key="EMPTY", num_retries=5))
-            for adapter in ("main_lora", "tool_lora", "costlora"):
-                models.register("adapter:" + adapter, LiteLlm(
-                    model="openai/" + adapter, api_base=MODEL_URL,
-                    api_key="EMPTY", num_retries=5))
+            for model_id in (MODEL_ALIAS, "main_lora", "tool_lora", "costlora", "dpo_lora"):
+                if model_id == "dpo_lora" and not live_enabled:
+                    continue
+                client_model = LiteLlm(
+                    model="openai/" + model_id, api_base=MODEL_URL,
+                    api_key="EMPTY", num_retries=5)
+                if live_arm:
+                    live_recorder = live_recorder or LiveRecorder(result_dir)
+                    live_recorder.wrap_model(client_model, model_id)
+                if model_id == MODEL_ALIAS:
+                    models.register(MODEL_ALIAS, client_model)
+                else:
+                    models.register("adapter:" + model_id, client_model)
+            if live_arm:
+                from swegemma.context import SwegemmaContext
+                original_create_tools = SwegemmaContext.create_tools
+                def create_live_tools(ctx):
+                    tools = original_create_tools(ctx)
+                    for tool_name in ("edit_file", "write_file", "run_command"):
+                        tools[tool_name] = live_recorder.tool_wrapper(
+                            ctx, tool_name, tools[tool_name])
+                    return tools
+                SwegemmaContext.create_tools = create_live_tools
             limits, constraints = build_submission_limits()
             config = EvalConfig(
                 tasks_path=DATA / "tasks.jsonl",
@@ -382,6 +428,22 @@ def worker(args, result_dir):
                         active_router.start()
                     context.start_agent_session = start_routed_session
                 patch, agent_error, trace = await original_runner(*run_args, **run_kwargs)
+                if live_recorder is not None:
+                    (result_dir / "agent_patch.patch").write_bytes(patch.encode())
+                    manifests = []
+                    if live_recorder.snapshot_file.exists():
+                        manifests = [json.loads(line) for line in
+                                     live_recorder.snapshot_file.read_text().splitlines() if line]
+                    last = next((x for x in reversed(manifests) if x.get("status") == "ok"), None)
+                    same = bool(last and
+                                (result_dir / "snapshots" / Path(last["patch_path"]).name).read_bytes()
+                                == patch.encode())
+                    (result_dir / "snapshot_patch_check.json").write_text(json.dumps({
+                        "snapshot_count": sum(x.get("status") == "ok" for x in manifests),
+                        "last_snapshot_matches_extracted_patch": same,
+                        "extracted_patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
+                        "last_snapshot_sha256": last.get("patch_sha256") if last else None,
+                    }, indent=2) + "\n")
                 (result_dir / "agent_phase.json").write_text(json.dumps({
                     "agent_error": agent_error,
                     "agent_timeout": bool(agent_error and "timeout" in agent_error.lower()),
@@ -391,7 +453,15 @@ def worker(args, result_dir):
                 return patch, agent_error, trace
 
             evaluator._run_agent_sandbox = capture_agent_phase
-            evaluation = asyncio.run(evaluator.run())
+            restore_asyncio = None
+            if live_recorder is not None:
+                import swegemma.evaluate as swegemma_evaluate
+                restore_asyncio = live_recorder.patch_timeout_context(swegemma_evaluate)
+            try:
+                evaluation = asyncio.run(evaluator.run())
+            finally:
+                if restore_asyncio is not None:
+                    restore_asyncio()
             if len(evaluation.task_results) != 1:
                 raise RuntimeError("Expected exactly one task result")
             result = evaluation.task_results[0]

@@ -640,7 +640,9 @@ def main():
     if args.seconds < 1 or args.seconds > 1800:
         parser.error("seconds must be between 1 and 1800")
     args.run_id = args.run_id or f"{args.label}-{uuid.uuid4().hex}"
-    result_dir = KIT / "results" / f"docker-{args.label}-{args.mode}"
+    result_dir = Path(os.environ.get(
+        "COSTAGENT_RESULT", KIT / "results" / f"docker-{args.label}-{args.mode}"
+    )).resolve()
     if args.worker:
         return worker(args, result_dir)
     if result_dir.exists():
