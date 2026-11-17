@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "costagent/scripts"))
 import dpo_live_instrumentation as instrumentation
+import run_dpo_live
 from dpo_live_instrumentation import LiveRecorder
 
 
@@ -55,3 +56,10 @@ def test_model_telemetry_records_usage_and_yields_identical_response(tmp_path, m
     assert row["running_requests"] == 0
     assert row["waiting_requests"] == 0
     assert row["generation_wall_seconds"] >= 0
+
+
+def test_atomic_json_creates_parent_not_destination_directory(tmp_path):
+    target = tmp_path / "nested" / "state.json"
+    run_dpo_live.atomic(target, {"ok": True})
+    assert target.is_file()
+    assert json.loads(target.read_text()) == {"ok": True}

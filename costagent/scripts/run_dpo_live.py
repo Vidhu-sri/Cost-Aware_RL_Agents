@@ -49,7 +49,7 @@ def sha(path):
 
 def atomic(path, obj):
     path = Path(path)
-    path.mkdir(parents=True, exist_ok=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, indent=2) + "\n")
     os.replace(tmp, path)
