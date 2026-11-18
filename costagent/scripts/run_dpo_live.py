@@ -310,7 +310,7 @@ def finalize_reasoning_tokens(path):
 def validate_smokes():
     expected = 4
     found = []
-    for marker in sorted((OUT / "attempts").glob("smoke-retry-*/**/done.json")):
+    for marker in sorted((OUT / "attempts").glob("smoke-*/**/done.json")):
         row = json.loads(marker.read_text())
         found.append(row)
     if len(found) != expected:
@@ -334,7 +334,7 @@ def validate_smokes():
 
 
 def run_attempt(server, tid, arm, smoke=False):
-    name = f"smoke-retry-{tid}" if smoke else tid
+    name = f"smoke-final-{tid}" if smoke else tid
     path = OUT / "attempts" / name / arm
     done = path / "done.json"
     if done.exists():
@@ -355,7 +355,7 @@ def run_attempt(server, tid, arm, smoke=False):
                 "COSTAGENT_SUBMISSION": str(ROOT / "data/sample_submission"),
                 "COSTAGENT_DPO_LIVE": "1", "COSTAGENT_DPO_LIVE_ARM": arm,
                 "COSTAGENT_TEMPERATURE": "0.2", "PYTHONUNBUFFERED": "1"})
-    label = f"dpolive-{('smoke-retry-' if smoke else '')}{tid}-{arm}".replace("_", "-")
+    label = f"dpolive-{('smoke-final-' if smoke else '')}{tid}-{arm}".replace("_", "-")
     task = next(json.loads(x) for x in (ROOT / "data/tasks.jsonl").read_text().splitlines()
                 if json.loads(x)["instance_id"] == tid)
     image = {"fastapi/fastapi": "gemma-fastapi-sandbox:20261015a",
@@ -528,6 +528,21 @@ def start_server(identity):
         raise
 
 
+def completed_smoke(task_id, arm):
+    for marker in sorted((OUT / "attempts").glob("smoke-*/**/done.json")):
+        try:
+            row = json.loads(marker.read_text())
+            result_dir = Path(row["result_dir"])
+            if (row.get("smoke") is True and row.get("task_id") == task_id
+                    and row.get("arm") == arm and row.get("cleanup_ok")
+                    and (result_dir / "turn_telemetry.jsonl").is_file()
+                    and (result_dir / "snapshot_patch_check.json").is_file()):
+                return row
+        except (OSError, KeyError, ValueError):
+            continue
+    return None
+
+
 def main():
     global STOP
     parser = argparse.ArgumentParser(description=__doc__)
@@ -575,7 +590,12 @@ def main():
         # Discarded smokes, both arms on both pre-registered smoke IDs.
         for tid in ("fastapi_14246", "rich_4070"):
             for arm in ("A0", "DPO"):
-                run_attempt(server, tid, arm, smoke=True)
+                prior = completed_smoke(tid, arm)
+                if prior:
+                    event("smoke_reused", task_id=tid, arm=arm,
+                          result_dir=prior["result_dir"])
+                else:
+                    run_attempt(server, tid, arm, smoke=True)
         validate_smokes()
         event("smoke_gate_passed", confirmatory_attempts_started=0)
         done = 0

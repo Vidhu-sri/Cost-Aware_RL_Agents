@@ -317,6 +317,17 @@ def worker(args, result_dir):
             agent_dir = result_dir / "agent_snapshot"
             shutil.copytree(Path(os.environ["COSTAGENT_SUBMISSION"]), agent_dir)
             if live_arm == "DPO":
+                # ADK validates adapter names against files under the submission
+                # root even though vLLM serves the adapter from its pinned
+                # checkpoint. Hard-link the immutable checkpoint into this
+                # controller-side snapshot; it is never mounted into the task
+                # container, and the link avoids duplicating 234 MiB per run.
+                staged_dpo = agent_dir / "adapters/dpo_lora"
+                staged_dpo.mkdir(parents=True)
+                shutil.copy2(dpo_path / "adapter_config.json",
+                             staged_dpo / "adapter_config.json")
+                os.link(dpo_path / "adapter_model.safetensors",
+                        staged_dpo / "adapter_model.safetensors")
                 agent_yaml = agent_dir / "agent.yaml"
                 agent_text = agent_yaml.read_text()
                 if agent_text.count("adapter: main_lora") != 1:
@@ -377,6 +388,9 @@ def worker(args, result_dir):
                     models.register(MODEL_ALIAS, client_model)
                 else:
                     models.register("adapter:" + model_id, client_model)
+                    if model_id == "dpo_lora":
+                        # resolve_swegemma_adapter looks up adapter_name directly.
+                        models.register(model_id, client_model)
             if live_arm:
                 from swegemma.context import SwegemmaContext
                 original_create_tools = SwegemmaContext.create_tools
