@@ -8,6 +8,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "costagent/scripts"))
 import dpo_live_instrumentation as instrumentation
 import run_dpo_live
+import capture_http
 from dpo_live_instrumentation import LiveRecorder
 
 
@@ -63,3 +64,34 @@ def test_atomic_json_creates_parent_not_destination_directory(tmp_path):
     run_dpo_live.atomic(target, {"ok": True})
     assert target.is_file()
     assert json.loads(target.read_text()) == {"ok": True}
+
+
+def test_http_capture_records_every_response_and_usage_without_changing_body(tmp_path, monkeypatch):
+    import httpx
+    original = httpx.AsyncClient.send
+    monkeypatch.setenv("COSTAGENT_DPO_LIVE", "1")
+    try:
+        capture_http.install(tmp_path)
+
+        def handler(request):
+            return httpx.Response(200, json={"model": "dpo_lora", "choices": [
+                {"message": {"content": "ok", "reasoning_content": "think"}}],
+                "usage": {"prompt_tokens": 13, "completion_tokens": 4,
+                          "completion_tokens_details": {"reasoning_tokens": 2}}})
+
+        async def run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                response = await client.post("http://127.0.0.1:8001/v1/chat/completions",
+                    json={"model": "dpo_lora", "messages": []})
+                return response.json()
+
+        assert asyncio.run(run())["choices"][0]["message"]["content"] == "ok"
+        row = json.loads((tmp_path / "http_request_telemetry.jsonl").read_text())
+        assert row["model_alias"] == "dpo_lora"
+        assert row["prompt_tokens"] == 13
+        assert row["completion_tokens"] == 4
+        assert row["reasoning_tokens"] == 2
+        assert row["generation_wall_seconds"] >= 0
+        assert row["request_index"] == 1
+    finally:
+        httpx.AsyncClient.send = original

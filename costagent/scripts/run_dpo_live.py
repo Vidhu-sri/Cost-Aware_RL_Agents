@@ -194,37 +194,79 @@ def finalize_reasoning_tokens(path):
         TOKENIZER = transformers.AutoTokenizer.from_pretrained(
             model_path, local_files_only=True, trust_remote_code=True)
     turn_path = path / "turn_telemetry.jsonl"
-    rows = [json.loads(x) for x in turn_path.read_text().splitlines() if x]
-    responses = []
-    for f in sorted(path.glob("model_response_*.bin")):
-        try:
-            obj = json.loads(f.read_bytes())
-            choice = obj.get("choices", [{}])[0]
-            message = choice.get("message", {})
-            reasoning = message.get("reasoning") or message.get("reasoning_content") or ""
-            usage = obj.get("usage") or {}
-            details = usage.get("completion_tokens_details") or {}
-            responses.append((f.name, reasoning, usage, details))
-        except Exception:
-            responses.append((f.name, None, {}, {}))
-    if len(rows) != len(responses):
-        raise RuntimeError(f"Telemetry/response count mismatch: {len(rows)} != {len(responses)}")
-    for row, (filename, reasoning, usage, details) in zip(rows, responses):
-        row["raw_response_file"] = filename
-        if usage.get("prompt_tokens") is not None:
-            row["prompt_tokens"] = int(usage["prompt_tokens"])
-        if usage.get("completion_tokens") is not None:
-            row["completion_tokens"] = int(usage["completion_tokens"])
-        if details.get("reasoning_tokens") is not None:
-            row["reasoning_tokens"] = int(details["reasoning_tokens"])
-            row["reasoning_tokens_source"] = "vllm_usage"
-        if row.get("reasoning_tokens") is None:
-            if reasoning is None:
-                raise RuntimeError(f"Cannot recover reasoning span from {filename}")
-            row["reasoning_tokens"] = len(TOKENIZER.encode(reasoning, add_special_tokens=False))
-            row["reasoning_tokens_source"] = "gemma_tokenizer_raw_reasoning_span" if reasoning else "no_reasoning_span"
-        elif not row.get("reasoning_tokens_source"):
-            row["reasoning_tokens_source"] = "vllm_usage"
+    http_path = path / "http_request_telemetry.jsonl"
+    if http_path.exists():
+        # HTTP capture sees calls made by sub-agents too; LiteLLM wrapper rows
+        # alone omit those calls. Use one row per actual request, including
+        # transport failures, rather than assuming the two counters coincide.
+        rows = [json.loads(x) for x in http_path.read_text().splitlines() if x]
+        rows.sort(key=lambda row: row.get("request_index", 0))
+        for row in rows:
+            reasoning = row.pop("reasoning_text", None)
+            if row.get("reasoning_tokens") is None:
+                if row.get("usage_present"):
+                    row["reasoning_tokens"] = len(TOKENIZER.encode(
+                        reasoning or "", add_special_tokens=False))
+                    row["reasoning_tokens_source"] = (
+                        "gemma_tokenizer_raw_reasoning_span" if reasoning
+                        else "no_reasoning_span")
+                else:
+                    row["reasoning_tokens_source"] = "unavailable_no_response_usage"
+            else:
+                row["reasoning_tokens_source"] = "vllm_usage"
+            row["raw_response_file"] = row.get("response_file")
+    else:
+        # Backward-compatible recovery for attempts made before HTTP-level
+        # telemetry was added. Missing root-model rows are kept explicit below.
+        rows = [json.loads(x) for x in turn_path.read_text().splitlines() if x]
+        responses = []
+        for f in sorted(path.glob("model_response_*.bin")):
+            try:
+                obj = json.loads(f.read_bytes())
+                choice = obj.get("choices", [{}])[0]
+                message = choice.get("message", {})
+                reasoning = message.get("reasoning") or message.get("reasoning_content") or ""
+                usage = obj.get("usage") or {}
+                details = usage.get("completion_tokens_details") or {}
+                responses.append((f.name, reasoning, usage, details))
+            except Exception:
+                responses.append((f.name, None, {}, {}))
+        for row, (filename, reasoning, usage, details) in zip(rows, responses):
+            row["raw_response_file"] = filename
+            if usage.get("prompt_tokens") is not None:
+                row["prompt_tokens"] = int(usage["prompt_tokens"])
+            if usage.get("completion_tokens") is not None:
+                row["completion_tokens"] = int(usage["completion_tokens"])
+            if details.get("reasoning_tokens") is not None:
+                row["reasoning_tokens"] = int(details["reasoning_tokens"])
+                row["reasoning_tokens_source"] = "vllm_usage"
+            if row.get("reasoning_tokens") is None and reasoning is not None:
+                row["reasoning_tokens"] = len(TOKENIZER.encode(reasoning, add_special_tokens=False))
+                row["reasoning_tokens_source"] = "gemma_tokenizer_raw_reasoning_span" if reasoning else "no_reasoning_span"
+            elif row.get("reasoning_tokens") is None:
+                row["reasoning_tokens_source"] = "unavailable_no_response_usage"
+        if len(rows) < len(responses):
+            for idx, (filename, reasoning, usage, details) in enumerate(
+                    responses[len(rows):], start=len(rows) + 1):
+                reasoning_tokens = details.get("reasoning_tokens")
+                source = "vllm_usage"
+                if reasoning_tokens is None and reasoning is not None:
+                    reasoning_tokens = len(TOKENIZER.encode(reasoning, add_special_tokens=False))
+                    source = "gemma_tokenizer_raw_reasoning_span" if reasoning else "no_reasoning_span"
+                rows.append({"request_index": idx, "model_alias": None,
+                             "prompt_tokens": usage.get("prompt_tokens"),
+                             "completion_tokens": usage.get("completion_tokens"),
+                             "reasoning_tokens": reasoning_tokens,
+                             "reasoning_tokens_source": source,
+                             "usage_present": bool(usage),
+                             "generation_wall_seconds": None,
+                             "running_requests": None, "waiting_requests": None,
+                             "action_type": "model_only",
+                             "tool_call_count": 0, "tool_execution_seconds": 0.0,
+                             "observation_chars": 0, "repeats_previous_call": False,
+                             "repeated_tool_calls": 0,
+                             "trace_mapping_status": "recovered_http_only",
+                             "raw_response_file": filename})
     trace_path = next(iter((path / "traces").glob("trace_*.json")), None)
     if trace_path is None:
         raise RuntimeError("Trace missing; cannot map turn telemetry to actions")
@@ -304,8 +346,12 @@ def finalize_reasoning_tokens(path):
                     "repeated_tool_calls": repeat_count,
                     "trace_mapping_status": "matched"})
     remaining = sum(len(items) for items in steps_by_usage.values())
-    if remaining:
-        raise RuntimeError(f"Could not map {remaining} trace tool steps to telemetry usage records")
+    atomic(path / "trace_mapping_audit.json", {
+        "telemetry_rows": len(rows), "unmatched_trace_tool_steps": remaining,
+        "unmatched_step_ids": [step.get("step_id") for items in steps_by_usage.values()
+                               for step in items],
+        "source": "http_request_telemetry" if http_path.exists()
+                  else "legacy_model_wrapper_and_response_files"})
     turn_path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
 
 
@@ -345,6 +391,27 @@ def run_attempt(server, tid, arm, smoke=False):
             raise RuntimeError(f"Saved attempt has cleanup failure: {done}")
         return row
     if path.exists():
+        outcome_path = path / "evaluation/outcome.json"
+        monitor_path = path / "evaluation/monitor.json"
+        if not smoke and outcome_path.is_file() and monitor_path.is_file():
+            monitor = json.loads(monitor_path.read_text())
+            if monitor.get("remaining_owned_ids"):
+                raise RuntimeError(f"Terminal attempt has owned containers remaining: {path}")
+            # The prior controller stopped during post-processing, after the
+            # harness wrote a terminal outcome and cleaned its container. Recover
+            # that record; never spend another model run on this task/arm.
+            result_dir = path / "evaluation"
+            finalize_reasoning_tokens(result_dir)
+            row = summarize_attempt(tid, arm, result_dir, smoke=False)
+            row.update({"runner_returncode": monitor.get("worker_exit_code"),
+                        "sampling_seed": 42, "outer_deadline_seconds": 900,
+                        "elapsed_controller_seconds": None,
+                        "recovered_terminal_record": True,
+                        "telemetry_source_anomaly": "recovered after controller post-processing failure"})
+            atomic(done, row)
+            event("attempt_recovered_terminal", **row)
+            save_csv()
+            return row
         raise RuntimeError(f"Incomplete attempt slot preserved; inspect before resume: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.mkdir()
@@ -581,6 +648,7 @@ def main():
         "server_script_sha256": sha(PKG / "scripts/serve_local.sh"),
         "worker_sha256": sha(PKG / "scripts/docker_eval_worker.py"),
         "instrumentation_sha256": sha(PKG / "scripts/dpo_live_instrumentation.py"),
+        "http_capture_sha256": sha(PKG / "scripts/capture_http.py"),
         "runner_sha256": sha(Path(__file__)),
     })
     event("preflight_passed", adapter=identity, schedule_sha256=schedule_hash,
