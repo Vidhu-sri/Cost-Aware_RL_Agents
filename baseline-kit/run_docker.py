@@ -489,7 +489,10 @@ def supervise(args, result_dir):
         "external_server": args.external_server,
     }
     (result_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    command = [sys.executable, str(Path(__file__).resolve()), "--worker",
+    # Keep the supervisor here, but execute the worker that owns the optional
+    # live DPO instrumentation and adapter selection path.
+    worker_script = ROOT / "costagent/scripts/docker_eval_worker.py"
+    command = [sys.executable, str(worker_script), "--worker",
                "--mode", args.mode, "--label", args.label,
                "--image", args.image, "--seconds", str(args.seconds),
                "--run-id", args.run_id, "--task-id", args.task_id]

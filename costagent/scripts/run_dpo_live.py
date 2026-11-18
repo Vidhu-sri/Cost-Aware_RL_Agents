@@ -293,7 +293,7 @@ def finalize_reasoning_tokens(path):
 def validate_smokes():
     expected = 4
     found = []
-    for marker in sorted((OUT / "attempts").glob("smoke-*/**/done.json")):
+    for marker in sorted((OUT / "attempts").glob("smoke-retry-*/**/done.json")):
         row = json.loads(marker.read_text())
         found.append(row)
     if len(found) != expected:
@@ -317,7 +317,7 @@ def validate_smokes():
 
 
 def run_attempt(server, tid, arm, smoke=False):
-    name = f"smoke-{tid}" if smoke else tid
+    name = f"smoke-retry-{tid}" if smoke else tid
     path = OUT / "attempts" / name / arm
     done = path / "done.json"
     if done.exists():
@@ -338,7 +338,7 @@ def run_attempt(server, tid, arm, smoke=False):
                 "COSTAGENT_SUBMISSION": str(ROOT / "data/sample_submission"),
                 "COSTAGENT_DPO_LIVE": "1", "COSTAGENT_DPO_LIVE_ARM": arm,
                 "COSTAGENT_TEMPERATURE": "0.2", "PYTHONUNBUFFERED": "1"})
-    label = f"dpolive-{('smoke-' if smoke else '')}{tid}-{arm}".replace("_", "-")
+    label = f"dpolive-{('smoke-retry-' if smoke else '')}{tid}-{arm}".replace("_", "-")
     task = next(json.loads(x) for x in (ROOT / "data/tasks.jsonl").read_text().splitlines()
                 if json.loads(x)["instance_id"] == tid)
     image = {"fastapi/fastapi": "gemma-fastapi-sandbox:20261015a",
