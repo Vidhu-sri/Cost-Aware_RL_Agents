@@ -378,6 +378,7 @@ def validate_smokes():
     first_completion = []
     termination_counts = {"wall_clock": 0, "turn_cap": 0, "explicit_submit": 0, "other": 0}
     request_counts = []
+    cancelled_without_usage = 0
     for row in found:
         path = Path(row["result_dir"])
         requests = [json.loads(x)["body"] for x in
@@ -398,13 +399,20 @@ def validate_smokes():
                   "explicit_submit" if outcome.get("patch_submission_seconds") is not None else
                   "other")
         termination_counts[reason] += 1
-        if row["turns_with_missing_usage"] or row["turns_with_missing_reasoning"]:
-            raise RuntimeError(f"Smoke has missing token telemetry: {row['task_id']}/{row['arm']}")
         for t in [json.loads(x) for x in (path / "turn_telemetry.jsonl").read_text().splitlines() if x]:
-            required = ["prompt_tokens", "completion_tokens", "generation_wall_seconds",
-                        "reasoning_tokens", "running_requests", "waiting_requests",
+            cancelled_at_deadline = (bool(outcome.get("agent_timeout"))
+                                     and str(t.get("error") or "").startswith("CancelledError")
+                                     and t.get("response_file") is None
+                                     and t.get("response_status") is None)
+            if not t.get("usage_present"):
+                if not cancelled_at_deadline:
+                    raise RuntimeError(f"Smoke has missing usage on a non-cancelled request: {row['task_id']}/{row['arm']}: {t}")
+                cancelled_without_usage += 1
+            required = ["generation_wall_seconds", "running_requests", "waiting_requests",
                         "action_type", "tool_execution_seconds", "observation_chars",
                         "repeats_previous_call", "trace_mapping_status"]
+            if not cancelled_at_deadline:
+                required.extend(["prompt_tokens", "completion_tokens", "reasoning_tokens"])
             if any(t.get(k) is None for k in required):
                 raise RuntimeError(f"Smoke telemetry missing fields: {row['task_id']}/{row['arm']}: {t}")
         check = path / "snapshot_patch_check.json"
@@ -424,6 +432,7 @@ def validate_smokes():
            "first_response_completion_median": median_first,
            "termination_counts": termination_counts,
            "model_request_counts": request_counts,
+           "cancelled_deadline_requests_without_usage": cancelled_without_usage,
            "thinking_on_for_every_request": True,
            "final_snapshot_matches_patch_for_every_smoke": True})
 
