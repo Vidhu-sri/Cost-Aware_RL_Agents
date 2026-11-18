@@ -62,21 +62,24 @@ def analyze(root):
     for task in tasks:
         for arm in ("A0", "DPO"):
             done, turns = rows[(task, arm)]
-            missing = sum(1 for t in turns if not t.get("usage_present")
-                          or t.get("prompt_tokens") is None or t.get("completion_tokens") is None)
+            missing_turns = [t for t in turns if not t.get("usage_present")
+                             or t.get("prompt_tokens") is None or t.get("completion_tokens") is None]
+            missing = len(missing_turns)
             raw = int(done["prompt_tokens"]) + int(done["completion_tokens"])
-            observed = sum(int(t["prompt_tokens"]) + int(t["completion_tokens"])
-                           for t in turns if t.get("usage_present")
-                           and t.get("prompt_tokens") is not None and t.get("completion_tokens") is not None)
-            if raw != observed:
-                raise RuntimeError(f"Per-turn usage mismatch for {task}/{arm}: {raw} != {observed}")
+            telemetry_sum = sum(int(t.get("prompt_tokens") or 0) + int(t.get("completion_tokens") or 0)
+                                for t in turns)
+            if raw != telemetry_sum:
+                raise RuntimeError(f"Per-turn token mismatch for {task}/{arm}: {raw} != {telemetry_sum}")
+            fallback_sum = sum(int(t.get("prompt_tokens") or 0) + int(t.get("completion_tokens") or 0)
+                               for t in missing_turns)
             attempt_rows.append({"task_id": task, "arm": arm, "resolved": done.get("resolved"),
                                  "raw_tokens": raw, "missing_usage_rows": missing,
-                                 "median_imputed_tokens": raw + missing * medians[arm]})
+                                 "fallback_tokens_replaced": fallback_sum,
+                                 "median_imputed_tokens": raw - fallback_sum + missing * medians[arm]})
 
     by_key = {(r["task_id"], r["arm"]): r for r in attempt_rows}
     rng = np.random.default_rng(20261119)
-    out = {"method": "Per-arm median observed prompt-plus-completion tokens per response; add one median for each missing usage row",
+    out = {"method": "Per-arm median observed prompt-plus-completion tokens per response; replace any fallback token estimate on each missing-usage row with that arm's median",
            "n_tasks": 84, "n_attempts": 168,
            "median_tokens_per_observed_response": medians,
            "missing_usage_rows": {arm: sum(r["missing_usage_rows"] for r in attempt_rows if r["arm"] == arm)

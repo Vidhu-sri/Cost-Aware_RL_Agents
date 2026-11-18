@@ -1,0 +1,59 @@
+{
+  "method": "Per-arm median observed prompt-plus-completion tokens per response; replace any fallback token estimate on each missing-usage row with that arm's median",
+  "n_tasks": 84,
+  "n_attempts": 168,
+  "median_tokens_per_observed_response": {
+    "A0": 9205.0,
+    "DPO": 9040.0
+  },
+  "missing_usage_rows": {
+    "A0": 34,
+    "DPO": 31
+  },
+  "analyses": {
+    "raw_tokens": {
+      "mean_tokens_per_attempt": {
+        "A0": 379011.29761904763,
+        "DPO": 374818.71428571426
+      },
+      "wilcoxon_dpo_minus_a0": {
+        "p_two_sided": 0.175661616789637,
+        "statistic": 981.0,
+        "zero_differences": 15
+      },
+      "tokens_per_verified_solve": {
+        "A0": 2894268.090909091,
+        "DPO": 3498308.0,
+        "dpo_minus_a0_ci_95": [
+          -817429.6142857141,
+          3599620.584821421
+        ],
+        "undefined_bootstrap_draws": 0
+      }
+    },
+    "median_imputed_tokens": {
+      "mean_tokens_per_attempt": {
+        "A0": 382737.13095238095,
+        "DPO": 377960.14285714284
+      },
+      "wilcoxon_dpo_minus_a0": {
+        "p_two_sided": 0.17736006329332732,
+        "statistic": 1012.0,
+        "zero_differences": 14
+      },
+      "tokens_per_verified_solve": {
+        "A0": 2922719.909090909,
+        "DPO": 3527628.0,
+        "dpo_minus_a0_ci_95": [
+          -821783.170952381,
+          3653019.215211042
+        ],
+        "undefined_bootstrap_draws": 2
+      }
+    }
+  },
+  "conclusion_changed": {
+    "paired_wilcoxon_p_below_0_05": false,
+    "tokens_per_solve_ci_excludes_zero": false
+  }
+}

@@ -1,0 +1,247 @@
+{
+  "n_attempts": 168,
+  "n_tasks": 84,
+  "interpretable_pairs": 79,
+  "unknown_pairs": 5,
+  "mcnemar": {
+    "A0_only": 3,
+    "DPO_only": 1,
+    "p_exact_two_sided": 0.625,
+    "A0_only_ids": [
+      "fastapi_11194",
+      "fastapi_9555",
+      "rich_3043"
+    ],
+    "DPO_only_ids": [
+      "fastapi_14349"
+    ]
+  },
+  "arms": {
+    "A0": {
+      "passes": 11,
+      "failed": 25,
+      "no_patch": 44,
+      "unknown": 4,
+      "timeouts": 4,
+      "timeout_passes": 0,
+      "calls_total": 3060,
+      "calls_mean": 36.42857142857143,
+      "tokens_total": 31836949,
+      "tokens_mean": 379011.29761904763,
+      "llm_total": 3338,
+      "wall_mean_s": 175.10299439315335,
+      "cleanup_fail": 0,
+      "calls_per_solve": 278.1818181818182,
+      "tokens_per_solve": 2894268.090909091,
+      "explicit_submit": 26,
+      "edit_actions": 291,
+      "all_actions": 3312,
+      "edit_share_pooled": 0.08786231884057971,
+      "mean_gen_s_per_turn": 3.886911853025789,
+      "turns_mean": 42.23809523809524,
+      "failed_attempts_for_found_lost": 69,
+      "found_then_lost": [],
+      "snapshot_unknown_attempts": [
+        "fastapi_11355",
+        "fastapi_13207",
+        "fastapi_13786",
+        "fastapi_13920",
+        "fastapi_14266",
+        "fastapi_14360",
+        "fastapi_14371",
+        "fastapi_14430",
+        "fastapi_14448",
+        "fastapi_14459",
+        "fastapi_14482",
+        "fastapi_14583",
+        "fastapi_14794",
+        "fastapi_14851",
+        "fastapi_14873",
+        "fastapi_14962",
+        "fastapi_14978",
+        "fastapi_14986",
+        "fastapi_15023",
+        "fastapi_15588",
+        "fastapi_15800",
+        "fastapi_5077",
+        "fastapi_9425",
+        "requests_6589",
+        "requests_6757",
+        "requests_7309",
+        "requests_7315",
+        "requests_7328",
+        "requests_7427",
+        "requests_7433",
+        "requests_7502",
+        "requests_7505",
+        "rich_3006",
+        "rich_3063",
+        "rich_3105",
+        "rich_3180",
+        "rich_3454",
+        "rich_3468",
+        "rich_3469",
+        "rich_3471",
+        "rich_3675",
+        "rich_3772",
+        "rich_3777",
+        "rich_3930",
+        "rich_3934",
+        "rich_3935",
+        "rich_3944",
+        "rich_4075",
+        "rich_4076",
+        "rich_4079"
+      ]
+    },
+    "DPO": {
+      "passes": 9,
+      "failed": 33,
+      "no_patch": 37,
+      "unknown": 5,
+      "timeouts": 7,
+      "timeout_passes": 1,
+      "calls_total": 3110,
+      "calls_mean": 37.023809523809526,
+      "tokens_total": 31484772,
+      "tokens_mean": 374818.71428571426,
+      "llm_total": 3341,
+      "wall_mean_s": 182.55443331706954,
+      "cleanup_fail": 0,
+      "calls_per_solve": 345.55555555555554,
+      "tokens_per_solve": 3498308.0,
+      "explicit_submit": 25,
+      "edit_actions": 247,
+      "all_actions": 3302,
+      "edit_share_pooled": 0.07480314960629922,
+      "mean_gen_s_per_turn": 3.8157620979754507,
+      "turns_mean": 42.273809523809526,
+      "failed_attempts_for_found_lost": 70,
+      "found_then_lost": [],
+      "snapshot_unknown_attempts": [
+        "fastapi_11355",
+        "fastapi_13207",
+        "fastapi_13713",
+        "fastapi_13786",
+        "fastapi_13920",
+        "fastapi_14099",
+        "fastapi_14266",
+        "fastapi_14360",
+        "fastapi_14371",
+        "fastapi_14419",
+        "fastapi_14430",
+        "fastapi_14448",
+        "fastapi_14459",
+        "fastapi_14482",
+        "fastapi_14583",
+        "fastapi_14794",
+        "fastapi_14851",
+        "fastapi_14873",
+        "fastapi_14962",
+        "fastapi_14986",
+        "fastapi_15023",
+        "fastapi_15588",
+        "fastapi_15800",
+        "fastapi_5077",
+        "fastapi_9425",
+        "fastapi_9555",
+        "requests_6589",
+        "requests_6757",
+        "requests_7309",
+        "requests_7315",
+        "requests_7427",
+        "requests_7433",
+        "requests_7502",
+        "requests_7505",
+        "rich_3006",
+        "rich_3043",
+        "rich_3063",
+        "rich_3105",
+        "rich_3180",
+        "rich_3454",
+        "rich_3468",
+        "rich_3469",
+        "rich_3471",
+        "rich_3675",
+        "rich_3772",
+        "rich_3777",
+        "rich_3930",
+        "rich_3934",
+        "rich_3935",
+        "rich_3944",
+        "rich_4075",
+        "rich_4076",
+        "rich_4079"
+      ]
+    }
+  },
+  "tool_calls_paired": {
+    "p": 0.8373962972383102,
+    "statistic": 302.5,
+    "ties": 49,
+    "mean_diff": 0.5952380952380952
+  },
+  "tool_calls_per_solve_bootstrap": {
+    "undefined_draws": 0,
+    "diff_CI": [
+      -69.93035714285716,
+      365.2205357142852
+    ]
+  },
+  "tokens_paired": {
+    "p": 0.175661616789637,
+    "statistic": 981.0,
+    "ties": 15,
+    "mean_diff": -4192.583333333333
+  },
+  "tokens_per_solve_bootstrap": {
+    "undefined_draws": 2,
+    "diff_CI": [
+      -808524.620357143,
+      3623339.8725000024
+    ]
+  },
+  "H1_gen_s": {
+    "estimate": 1.0217379547821674,
+    "ci": [
+      0.9508372278275035,
+      1.0927164703483883
+    ],
+    "p_one_sided": 0.7266636668166592
+  },
+  "H2_calls": {
+    "estimate": 1.0258404329093622,
+    "ci": [
+      0.95789147482325,
+      1.1013670333145298
+    ],
+    "p_one_sided": 0.24598770061496925
+  },
+  "H3_edit_share": {
+    "estimate": -0.013273786977419752,
+    "ci": [
+      -0.040896987703345176,
+      0.00984364297630503
+    ],
+    "p_one_sided": 0.8347582620868956
+  },
+  "H4_submit": {
+    "A0_only": 6,
+    "DPO_only": 5,
+    "p_one_sided": 0.7255859375
+  },
+  "holm_adjusted": {
+    "H1_gen_s": 1.0,
+    "H2_calls": 0.983950802459877,
+    "H3_edit_share": 1.0,
+    "H4_submit": 1.0
+  },
+  "snapshot_verifications": {
+    "unique": 222,
+    "status": {
+      "complete": 167,
+      "infrastructure_error": 55
+    },
+    "passes": 0
+  }
+}

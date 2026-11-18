@@ -1,0 +1,30 @@
+{
+  "converged": true,
+  "message": "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL",
+  "n_attempts": 159,
+  "n_tasks": 80,
+  "coefficients": {
+    "intercept": -20.0,
+    "log_generation_seconds_per_turn": 0.04724857710380514,
+    "explicit_submit": 19.606089478798047
+  },
+  "random_intercept_sd": 11.16671559543768,
+  "nll": 25.17706439114556,
+  "warnings": [
+    "Parameter bound reached; fit is not reliably identified and coefficients should not be interpreted."
+  ],
+  "conditional_wald_ci95": {
+    "intercept": [
+      -28.651501480366544,
+      -11.348498519633456
+    ],
+    "log_generation_seconds_per_turn": [
+      -5.495560484982926,
+      5.590057639190537
+    ],
+    "explicit_submit": [
+      13.11786767888671,
+      26.094311278709384
+    ]
+  }
+}
