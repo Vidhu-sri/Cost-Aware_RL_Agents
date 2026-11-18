@@ -39,6 +39,18 @@ from run_docker_agent_all import gpu_free_mib, resource_concern, stop_server
 from costagent.eval_status import interpret_outcome
 
 
+class AttachedOwnedServer:
+    """Popen-like handle for a previously launched, identity-checked server."""
+    def __init__(self, pid):
+        self.pid = int(pid)
+
+    def poll(self):
+        return None if psutil.pid_exists(self.pid) else 0
+
+    def wait(self, timeout=None):
+        return psutil.Process(self.pid).wait(timeout=timeout)
+
+
 def sha(path):
     h = hashlib.sha256()
     with Path(path).open("rb") as f:
@@ -597,6 +609,46 @@ def start_server(identity):
         raise
 
 
+def attach_owned_server(identity):
+    """Reuse only this batch's still-running server after controller recovery."""
+    owner_path = OUT / "server" / "ownership.json"
+    owner = json.loads(owner_path.read_text())
+    pid = int(owner["pid"])
+    proc = psutil.Process(pid)
+    if abs(proc.create_time() - float(owner["create_time"])) > 0.02:
+        raise RuntimeError("Recorded vLLM PID was reused; refusing to attach")
+    if os.getpgid(pid) != int(owner["process_group"]) or int(owner["process_group"]) != pid:
+        raise RuntimeError("Recorded vLLM process-group identity changed; refusing to attach")
+    if owner.get("identity", {}).get("weight_sha256") != identity["weight_sha256"]:
+        raise RuntimeError("Owned vLLM serves a different DPO adapter; refusing to attach")
+    cmd = " ".join(proc.cmdline())
+    for required in ("--port 8001", "--gpu-memory-utilization 0.60",
+                     "--max-num-seqs 1", "dpo_lora="):
+        if required not in cmd:
+            raise RuntimeError(f"Owned vLLM command is missing {required!r}")
+    with urllib.request.urlopen(URL + "/models", timeout=5) as response:
+        served = json.load(response)
+    models = {m["id"]: m for m in served.get("data", [])}
+    expected = {
+        "gemma-4-31b-it-qat-w4a16-ct",
+        "main_lora", "tool_lora", "dpo_lora",
+    }
+    if not expected <= models.keys():
+        raise RuntimeError(f"Owned vLLM missing expected models: {sorted(expected-models.keys())}")
+    roots = {
+        "main_lora": (ROOT / "data/sample_submission/adapters/main_lora").resolve(),
+        "tool_lora": (ROOT / "data/sample_submission/adapters/tool_lora").resolve(),
+        "dpo_lora": DPO.resolve(),
+    }
+    for name, expected_root in roots.items():
+        if Path(models[name]["root"]).resolve() != expected_root:
+            raise RuntimeError(f"Owned vLLM alias {name} points to unexpected root")
+    atomic(OUT / "server" / "served_models.json", served)
+    event("vllm_reused_owned", pid=pid, process_group=owner["process_group"],
+          gpu_free_mib=gpu_free_mib())
+    return AttachedOwnedServer(pid), float(owner["create_time"])
+
+
 def completed_smoke(task_id, arm):
     for marker in sorted((OUT / "attempts").glob("smoke-*/**/done.json")):
         try:
@@ -616,6 +668,8 @@ def main():
     global STOP
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--reuse-owned-server", action="store_true",
+                        help="resume with the batch's identity-verified existing vLLM")
     args = parser.parse_args()
     identity = adapter_identity()
     plan, schedule = frozen_schedule()
@@ -638,7 +692,8 @@ def main():
             raise RuntimeError("Saved schedule differs from preregistered schedule")
     else:
         atomic(schedule_path, {"seed": 20261119, "rows": schedule, "sha256": schedule_hash})
-    atomic(OUT / "run_manifest.json", {
+    manifest_path = OUT / "run_manifest.json"
+    manifest = {
         "prereg_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "prereg_file_sha256": sha(ROOT / "prereg/DPO_LIVE.md"),
         "source_commit": plan["source_commit"], "adapter": identity,
@@ -650,13 +705,27 @@ def main():
         "instrumentation_sha256": sha(PKG / "scripts/dpo_live_instrumentation.py"),
         "http_capture_sha256": sha(PKG / "scripts/capture_http.py"),
         "runner_sha256": sha(Path(__file__)),
-    })
+    }
+    if manifest_path.exists():
+        previous = json.loads(manifest_path.read_text())
+        if (previous.get("prereg_file_sha256") != manifest["prereg_file_sha256"]
+                or previous.get("schedule_sha256") != schedule_hash
+                or previous.get("adapter", {}).get("weight_sha256") != identity["weight_sha256"]):
+            raise RuntimeError("Existing run manifest does not match preregistration, schedule, or adapter")
+        previous.setdefault("resume_history", []).append({
+            "time": time.time(), "controller_commit": manifest["prereg_commit"],
+            "runner_sha256": manifest["runner_sha256"],
+            "reuse_owned_server": args.reuse_owned_server,
+        })
+        manifest = previous
+    atomic(manifest_path, manifest)
     event("preflight_passed", adapter=identity, schedule_sha256=schedule_hash,
           tasks=len(schedule), attempts=168)
     server = None
     created = None
     try:
-        server, created = start_server(identity)
+        server, created = (attach_owned_server(identity) if args.reuse_owned_server
+                           else start_server(identity))
         # Discarded smokes, both arms on both pre-registered smoke IDs.
         for tid in ("fastapi_14246", "rich_4070"):
             for arm in ("A0", "DPO"):
