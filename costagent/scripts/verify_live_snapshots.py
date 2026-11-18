@@ -17,6 +17,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "results/dpo_live"
@@ -76,7 +77,11 @@ def existing_keys(index: Path):
         for line in index.read_text().splitlines():
             try:
                 row = json.loads(line)
-                if row.get("status") in {"complete", "could_not_interpret", "infrastructure_error"}:
+                output = row.get("captured_output", "")
+                retryable_collision = (row.get("status") == "infrastructure_error"
+                                       and "result directory already exists" in output)
+                if (row.get("status") in {"complete", "could_not_interpret", "infrastructure_error"}
+                        and not retryable_collision):
                     result.add((row["task_id"], row["patch_sha256"]))
             except (ValueError, KeyError):
                 continue
@@ -90,6 +95,13 @@ def verify(item: dict) -> dict:
     slug = f"{item['task_id']}-{item['patch_sha256'][:16]}"
     result_dir = OUT / "snapshot_verification" / slug
     label = f"dpolive-snap-{slug}"
+    if result_dir.exists():
+        # A previous verifier may have completed the test but failed before
+        # writing its monitor/index row. Keep that evidence intact and give
+        # the retry its own output directory and owned-container label.
+        retry = uuid.uuid4().hex[:8]
+        result_dir = result_dir.with_name(f"{slug}-retry-{retry}")
+        label = f"{label}-retry-{retry}"
     env = os.environ.copy()
     env["COSTAGENT_RESULT"] = str(result_dir)
     env["COSTAGENT_SUBMISSION"] = str(ROOT / "data/sample_submission")
@@ -133,6 +145,10 @@ def verify(item: dict) -> dict:
 
 def save_csv(records):
     path = OUT / "snapshot_verification.csv"
+    latest = {}
+    for row in records:
+        latest[(row["task_id"], row["patch_sha256"])] = row
+    records = list(latest.values())
     columns = sorted({k for row in records for k in row})
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=columns)
