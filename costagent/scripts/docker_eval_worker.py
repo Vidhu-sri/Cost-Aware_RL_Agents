@@ -326,8 +326,14 @@ def worker(args, result_dir):
                 staged_dpo.mkdir(parents=True)
                 shutil.copy2(dpo_path / "adapter_config.json",
                              staged_dpo / "adapter_config.json")
-                os.link(dpo_path / "adapter_model.safetensors",
-                        staged_dpo / "adapter_model.safetensors")
+                try:
+                    os.link(dpo_path / "adapter_model.safetensors",
+                            staged_dpo / "adapter_model.safetensors")
+                except OSError:
+                    # The trained checkpoint is on /tmp, which can be a
+                    # different filesystem from the results tree.
+                    shutil.copy2(dpo_path / "adapter_model.safetensors",
+                                 staged_dpo / "adapter_model.safetensors")
                 agent_yaml = agent_dir / "agent.yaml"
                 agent_text = agent_yaml.read_text()
                 if agent_text.count("adapter: main_lora") != 1:

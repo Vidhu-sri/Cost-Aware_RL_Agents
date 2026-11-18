@@ -334,7 +334,7 @@ def validate_smokes():
 
 
 def run_attempt(server, tid, arm, smoke=False):
-    name = f"smoke-final-{tid}" if smoke else tid
+    name = f"smoke-run2-{tid}" if smoke else tid
     path = OUT / "attempts" / name / arm
     done = path / "done.json"
     if done.exists():
@@ -355,7 +355,7 @@ def run_attempt(server, tid, arm, smoke=False):
                 "COSTAGENT_SUBMISSION": str(ROOT / "data/sample_submission"),
                 "COSTAGENT_DPO_LIVE": "1", "COSTAGENT_DPO_LIVE_ARM": arm,
                 "COSTAGENT_TEMPERATURE": "0.2", "PYTHONUNBUFFERED": "1"})
-    label = f"dpolive-{('smoke-final-' if smoke else '')}{tid}-{arm}".replace("_", "-")
+    label = f"dpolive-{('smoke-run2-' if smoke else '')}{tid}-{arm}".replace("_", "-")
     task = next(json.loads(x) for x in (ROOT / "data/tasks.jsonl").read_text().splitlines()
                 if json.loads(x)["instance_id"] == tid)
     image = {"fastapi/fastapi": "gemma-fastapi-sandbox:20261015a",
