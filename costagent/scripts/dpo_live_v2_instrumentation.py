@@ -81,8 +81,6 @@ class LiveRecorder:
 
     def exclude_from_budget(self, elapsed, ctx=None):
         ctx = ctx or self.context
-        if ctx is not None and getattr(ctx, "agent_start_time", None) is not None:
-            ctx.agent_start_time += elapsed
         if self.timeout_obj is None:
             # The agent_runner module owns the hard 300-second deadline. A
             # missing handle would charge snapshot work against that budget.
@@ -92,15 +90,32 @@ class LiveRecorder:
                     "excluded_seconds": elapsed})
                 raise RuntimeError("DPO live v2 hard deadline not captured")
             return
+        if self.timeout_obj.expired():
+            # A final model-telemetry callback can run while asyncio is
+            # cancelling the agent at its legitimate deadline. No remaining
+            # budget exists to extend, and reschedule() is illegal then.
+            _append(self.result_dir / "deadline_adjustments.jsonl", {
+                "time": time.time(), "excluded_seconds": 0.0,
+                "post_expiry_overhead_seconds": elapsed,
+                "status": "already_expired"})
+            return
         try:
             before = self.timeout_obj.when()
             if before is None:
                 raise RuntimeError("hard deadline has no scheduled expiry")
             self.timeout_obj.reschedule(before + elapsed)
+            if ctx is not None and getattr(ctx, "agent_start_time", None) is not None:
+                ctx.agent_start_time += elapsed
             _append(self.result_dir / "deadline_adjustments.jsonl", {
                 "time": time.time(), "excluded_seconds": elapsed,
                 "deadline_before": before, "deadline_after": self.timeout_obj.when()})
         except (RuntimeError, AttributeError) as e:
+            if self.timeout_obj.expired():
+                _append(self.result_dir / "deadline_adjustments.jsonl", {
+                    "time": time.time(), "excluded_seconds": 0.0,
+                    "post_expiry_overhead_seconds": elapsed,
+                    "status": "expired_during_adjustment"})
+                return
             _append(self.result_dir / "deadline_guard_violation.jsonl", {
                 "time": time.time(), "error": f"{type(e).__name__}: {e}",
                 "excluded_seconds": elapsed})

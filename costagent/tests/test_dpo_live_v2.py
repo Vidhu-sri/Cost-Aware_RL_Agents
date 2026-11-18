@@ -102,6 +102,20 @@ class DpoLiveV2Tests(unittest.IsolatedAsyncioTestCase):
             finally:
                 restore()
 
+    async def test_post_expiry_telemetry_does_not_raise_guard_violation(self):
+        with tempfile.TemporaryDirectory() as td:
+            recorder = LiveRecorder(Path(td))
+            class Expired:
+                def expired(self):
+                    return True
+                def reschedule(self, when):
+                    raise AssertionError("Must not reschedule an expired deadline")
+            recorder.timeout_obj = Expired()
+            recorder.exclude_from_budget(0.007)
+            self.assertFalse((Path(td) / "deadline_guard_violation.jsonl").exists())
+            row = json.loads((Path(td) / "deadline_adjustments.jsonl").read_text().splitlines()[0])
+            self.assertEqual(row["status"], "already_expired")
+
 
 if __name__ == "__main__":
     unittest.main()

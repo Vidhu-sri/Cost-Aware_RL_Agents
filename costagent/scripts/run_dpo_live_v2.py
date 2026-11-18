@@ -432,7 +432,7 @@ def run_attempt(server, tid, arm, smoke=False):
     verifier_failure = OUT / "snapshot_verifier_failure.json"
     if verifier_failure.exists():
         raise RuntimeError(f"CPU snapshot verifier failed: {verifier_failure.read_text()}")
-    name = f"smoke-v2-{tid}" if smoke else tid
+    name = f"smoke-v2-retry1-{tid}" if smoke else tid
     path = OUT / "attempts" / name / arm
     done = path / "done.json"
     if done.exists():
