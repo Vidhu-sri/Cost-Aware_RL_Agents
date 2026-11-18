@@ -230,10 +230,24 @@ def finalize_reasoning_tokens(path):
         raise RuntimeError("Trace missing; cannot map turn telemetry to actions")
     trace = json.loads(trace_path.read_text())
     agent_steps = [s for s in trace.get("steps", []) if s.get("source") == "agent"]
-    if len(rows) != len(agent_steps):
-        raise RuntimeError(f"Turn/trace count mismatch: {len(rows)} telemetry turns vs {len(agent_steps)} agent steps")
+    steps_by_usage = {}
+    for step in agent_steps:
+        calls = step.get("tool_calls") or []
+        usage = ((calls[0].get("extra") or {}).get("usage") or {}) if calls else {}
+        key = (usage.get("prompt_tokens"), usage.get("completion_tokens"))
+        steps_by_usage.setdefault(key, []).append(step)
     previous_call = None
-    for row, step in zip(rows, agent_steps):
+    for row in rows:
+        key = (row.get("prompt_tokens"), row.get("completion_tokens"))
+        matches = steps_by_usage.get(key) or []
+        step = matches.pop(0) if matches else None
+        if step is None:
+            row.update({"trace_step_id": None, "action_type": "model_only",
+                        "tool_call_count": 0, "tool_execution_seconds": 0.0,
+                        "observation_chars": 0, "repeats_previous_call": False,
+                        "repeated_tool_calls": 0,
+                        "trace_mapping_status": "model_only_no_tool_step"})
+            continue
         calls = step.get("tool_calls") or []
         action_types = []
         tool_seconds = 0.0
@@ -287,6 +301,9 @@ def finalize_reasoning_tokens(path):
                     "repeats_previous_call": repeat_count > 0,
                     "repeated_tool_calls": repeat_count,
                     "trace_mapping_status": "matched"})
+    remaining = sum(len(items) for items in steps_by_usage.values())
+    if remaining:
+        raise RuntimeError(f"Could not map {remaining} trace tool steps to telemetry usage records")
     turn_path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
 
 
