@@ -233,6 +233,8 @@ def finalize_reasoning_tokens(path):
     steps_by_usage = {}
     for step in agent_steps:
         calls = step.get("tool_calls") or []
+        if not calls:
+            continue
         usage = ((calls[0].get("extra") or {}).get("usage") or {}) if calls else {}
         key = (usage.get("prompt_tokens"), usage.get("completion_tokens"))
         steps_by_usage.setdefault(key, []).append(step)

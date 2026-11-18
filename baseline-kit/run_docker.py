@@ -481,7 +481,8 @@ def supervise(args, result_dir):
         "test_patch_sha256": hashlib.sha256(task_record["test_patch"].encode()).hexdigest(),
         "wheel_sha256": {p.name: sha256(p) for p in sorted(wheel_dir.glob("*.whl"))},
         "dockerfile_sha256": sha256(wheel_dir.parent / "Dockerfile.public"),
-        "saved_patch_sha256": sha256(PATCH) if args.mode == "saved-patch" else None,
+        "saved_patch_sha256": (sha256(Path(args.patch_path)) if args.mode == "patch-file"
+                               else sha256(PATCH) if args.mode == "saved-patch" else None),
         "outer_deadline_seconds": args.seconds,
         "network": "none",
         "cgroup_limits_enforced": False,
@@ -498,6 +499,8 @@ def supervise(args, result_dir):
                "--run-id", args.run_id, "--task-id", args.task_id]
     if args.seed is not None:
         command.extend(["--seed", str(args.seed)])
+    if args.patch_path:
+        command.extend(["--patch-path", args.patch_path])
     samples = []
     timed_out = False
     interrupted = False
@@ -627,7 +630,7 @@ def supervise(args, result_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=("diagnostic", "output-diagnostic", "timeout-probe", "reference", "saved-patch", "agent"), required=True)
+    parser.add_argument("--mode", choices=("diagnostic", "output-diagnostic", "timeout-probe", "reference", "saved-patch", "patch-file", "agent"), required=True)
     parser.add_argument("--label", required=True)
     parser.add_argument("--image", default="gemma-requests-sandbox:20261015c")
     parser.add_argument("--seconds", type=int, default=600)
@@ -635,6 +638,7 @@ def main():
     published_ids = {json.loads(line)["instance_id"] for line in (DATA / "tasks.jsonl").open()}
     parser.add_argument("--task-id", choices=sorted(published_ids), default="requests_7505")
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--patch-path")
     parser.add_argument("--external-server", action="store_true")
     parser.add_argument("--worker", action="store_true")
     args = parser.parse_args()
@@ -642,6 +646,8 @@ def main():
         parser.error("label must contain only ASCII letters, digits, hyphens, or underscores")
     if args.seconds < 1 or args.seconds > 1800:
         parser.error("seconds must be between 1 and 1800")
+    if args.mode == "patch-file" and not args.patch_path:
+        parser.error("--patch-path is required for patch-file mode")
     args.run_id = args.run_id or f"{args.label}-{uuid.uuid4().hex}"
     result_dir = Path(os.environ.get(
         "COSTAGENT_RESULT", KIT / "results" / f"docker-{args.label}-{args.mode}"

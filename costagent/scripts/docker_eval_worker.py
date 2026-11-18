@@ -98,7 +98,7 @@ def worker(args, result_dir):
     class OwnedContainerManager(ContainerManager):
         def exec(self, container_id, command, *, timeout=None):
             response = super().exec(container_id, command, timeout=timeout)
-            if (args.mode in ("reference", "agent") and response.exit_code == 0
+            if (args.mode in ("reference", "agent", "patch-file") and response.exit_code == 0
                     and command.startswith("python3 /tmp/setup.py ")):
                 packages = ["pytest", "pytest-cov", "pytest-timeout", "pygments",
                             "markdown-it-py", "mdurl", "typing-extensions",
@@ -179,7 +179,7 @@ def worker(args, result_dir):
             if setup.exit_code != 0:
                 self.stop(cid)
                 raise RuntimeError(f"Private disconnected veth setup failed: {setup.stderr}")
-            if args.mode in ("reference", "agent") and args.task_id.startswith(("rich_", "fastapi_")):
+            if args.mode in ("reference", "agent", "patch-file") and args.task_id.startswith(("rich_", "fastapi_")):
                 # This image already installed the complete small-wheel set.
                 # The harness's global sp_base.tar cache is not keyed by wheel
                 # contents, so extracting it can overwrite the image pins.
@@ -200,9 +200,15 @@ def worker(args, result_dir):
     task = next(t for t in load_tasks(DATA / "tasks.jsonl") if t.instance_id == args.task_id)
     if args.mode in ("saved-patch", "output-diagnostic") and args.task_id != "requests_7505":
         raise RuntimeError(f"{args.mode} is Requests-only")
-    effective_patch = (task.patch if args.mode == "reference" else
-                       PATCH.read_text() if args.mode == "saved-patch" else "")
-    if args.mode in ("reference", "saved-patch") and not effective_patch.strip():
+    if args.mode == "patch-file":
+        patch_path = Path(args.patch_path).resolve() if args.patch_path else None
+        if patch_path is None or not patch_path.is_file():
+            raise RuntimeError(f"patch-file mode requires an existing --patch-path: {args.patch_path}")
+        effective_patch = patch_path.read_text()
+    else:
+        effective_patch = (task.patch if args.mode == "reference" else
+                           PATCH.read_text() if args.mode == "saved-patch" else "")
+    if args.mode in ("reference", "saved-patch", "patch-file") and not effective_patch.strip():
         raise RuntimeError("Verification patch is empty")
     snapshot, base_snapshot, snapshot_patch = resolve_task_snapshot_paths(
         DATA / "snapshots", task.instance_id, task.repo
@@ -763,7 +769,7 @@ def supervise(args, result_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=("diagnostic", "output-diagnostic", "timeout-probe", "reference", "saved-patch", "agent"), required=True)
+    parser.add_argument("--mode", choices=("diagnostic", "output-diagnostic", "timeout-probe", "reference", "saved-patch", "patch-file", "agent"), required=True)
     parser.add_argument("--label", required=True)
     parser.add_argument("--image", default="gemma-requests-sandbox:20261015c")
     parser.add_argument("--seconds", type=int, default=600)
@@ -771,6 +777,7 @@ def main():
     published_ids = {json.loads(line)["instance_id"] for line in (DATA / "tasks.jsonl").open()}
     parser.add_argument("--task-id", choices=sorted(published_ids), default="requests_7505")
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--patch-path")
     parser.add_argument("--external-server", action="store_true")
     parser.add_argument("--worker", action="store_true")
     args = parser.parse_args()
@@ -778,6 +785,8 @@ def main():
         parser.error("label must contain only ASCII letters, digits, hyphens, or underscores")
     if args.seconds < 1 or args.seconds > 1800:
         parser.error("seconds must be between 1 and 1800")
+    if args.mode == "patch-file" and not args.patch_path:
+        parser.error("--patch-path is required for patch-file mode")
     args.run_id = args.run_id or f"{args.label}-{uuid.uuid4().hex}"
     result_dir = Path(os.environ["COSTAGENT_RESULT"])
     if args.worker:
