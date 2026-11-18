@@ -291,8 +291,10 @@ def worker(args, result_dir):
                 served = json.load(response)
             served_ids = {model["id"] for model in served["data"]}
             expected_ids = {MODEL_ALIAS, "main_lora", "tool_lora"}
-            live_enabled = os.environ.get("COSTAGENT_DPO_LIVE") == "1"
-            live_arm = os.environ.get("COSTAGENT_DPO_LIVE_ARM") if live_enabled else None
+            live_v2 = os.environ.get("COSTAGENT_DPO_LIVE_V2") == "1"
+            live_enabled = os.environ.get("COSTAGENT_DPO_LIVE") == "1" or live_v2
+            live_arm = (os.environ.get("COSTAGENT_DPO_LIVE_V2_ARM") if live_v2 else
+                        os.environ.get("COSTAGENT_DPO_LIVE_ARM")) if live_enabled else None
             if live_enabled:
                 if live_arm not in {"A0", "DPO"}:
                     raise RuntimeError(f"Invalid DPO live arm: {live_arm!r}")
@@ -305,7 +307,10 @@ def worker(args, result_dir):
 
             live_recorder = None
             if live_enabled:
-                from dpo_live_instrumentation import LiveRecorder
+                if live_v2:
+                    from dpo_live_v2_instrumentation import LiveRecorder
+                else:
+                    from dpo_live_instrumentation import LiveRecorder
                 dpo_path = (PKG / "artifacts/mixed-temperature-v1/dpo/epoch-005").resolve()
                 dpo_id = next(m for m in served["data"] if m["id"] == "dpo_lora")
                 if Path(dpo_id["root"]).resolve() != dpo_path:
@@ -387,13 +392,16 @@ def worker(args, result_dir):
             litellm.drop_params = True
             litellm.telemetry = False
             models = ModelRegistry()
+            if live_v2:
+                live_recorder = LiveRecorder(result_dir)
+                restore_model_hook = live_recorder.install_configured_model_hook()
             for model_id in (MODEL_ALIAS, "main_lora", "tool_lora", "costlora", "dpo_lora"):
                 if model_id == "dpo_lora" and not live_enabled:
                     continue
                 client_model = LiteLlm(
                     model="openai/" + model_id, api_base=MODEL_URL,
                     api_key="EMPTY", num_retries=5)
-                if live_arm:
+                if live_arm and not live_v2:
                     live_recorder = live_recorder or LiveRecorder(result_dir)
                     live_recorder.wrap_model(client_model, model_id)
                 if model_id == MODEL_ALIAS:
@@ -481,13 +489,19 @@ def worker(args, result_dir):
             evaluator._run_agent_sandbox = capture_agent_phase
             restore_asyncio = None
             if live_recorder is not None:
-                import swegemma.evaluate as swegemma_evaluate
-                restore_asyncio = live_recorder.patch_timeout_context(swegemma_evaluate)
+                if live_v2:
+                    import swegemma.harness.agent_runner as agent_runner_module
+                    restore_asyncio = live_recorder.patch_timeout_context(agent_runner_module)
+                else:
+                    import swegemma.evaluate as swegemma_evaluate
+                    restore_asyncio = live_recorder.patch_timeout_context(swegemma_evaluate)
             try:
                 evaluation = asyncio.run(evaluator.run())
             finally:
                 if restore_asyncio is not None:
                     restore_asyncio()
+                if live_v2:
+                    restore_model_hook()
             if len(evaluation.task_results) != 1:
                 raise RuntimeError("Expected exactly one task result")
             result = evaluation.task_results[0]

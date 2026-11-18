@@ -2,8 +2,119 @@
 
 **Status:** All 168 attempts are terminal. This file was opened before batch
 completion at the user's request on 2026-11-18, a reporting-timing deviation
-from `prereg/DPO_LIVE.md`; the experimental design, settings, and task schedule
-were unchanged.
+from `prereg/DPO_LIVE.md`. A subsequent read-only audit found a material
+execution deviation: the live telemetry wrapper dropped the configured thinking
+parameters from the actual model requests in both fresh arms. The task schedule
+was unchanged, but the intended configuration was **not** preserved. The
+within-run outcome counts below are retained as observations under the actual
+configuration; they are not a clean replication of the confirmatory A0 protocol.
+
+## Read-only audit: why fresh A0 differs from confirmatory A0
+
+The [336-row termination audit](../../artifacts/dpo_live_termination_audit.csv)
+gives **every selected attempt** in both 84-task runs: run, arm, task ID,
+termination reason and raw error, harness task wall seconds (`outcome.json`'s
+`duration_seconds`, including non-agent work), LLM turns, billed tool calls,
+patch bytes, result, and source trace/outcome paths. No original result was
+edited. Each arm has 84 unique task IDs, and the A0 task sets match exactly.
+`explicit_submit` means a recorded patch-submission time with no agent
+error; `other_model_error` is the saved context-window error, not a model solve
+failure or a wall timeout. No selected attempt hit the 100-call cap or had a
+recorded worker crash.
+
+| Run / arm | n | Wall clock | Turn cap | Call cap | Explicit submit | Model/config error | Other | Mean wall s | Mean turns | Mean calls |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Confirmatory A0 | 84 | 50 | 0 | 0 | 25 | 9 | 0 | 277.6 | 23.1 | 21.9 |
+| Confirmatory router | 84 | 58 | 1 | 0 | 25 | 0 | 0 | 288.1 | 23.7 | 21.3 |
+| Fresh A0 | 84 | 4 | 53 | 0 | 26 | 1 | 0 | 166.1 | 39.7 | 36.4 |
+| Fresh DPO | 84 | 7 | 49 | 0 | 25 | 1 | 2 | 171.2 | 39.8 | 37.0 |
+
+Fresh DPO's two `Other` records are one completed-without-submit and one
+completion without an agent error or submission timestamp; the CSV preserves
+their exact raw fields. The frequently cited 44 fresh-A0 `no_patch` cases are
+the mutually exclusive *verification category*. There are **45 zero-byte
+patches** in raw fresh-A0 outcomes: one was categorized `failed` after a test
+run despite having no patch. Fresh DPO analogously has 39 zero-byte patches,
+but 37 in the `no_patch` category.
+
+### Effective configuration and mechanism
+
+| Setting | Confirmatory A0 | Fresh A0 |
+|---|---|---|
+| Recorded source commit | `ee4777ba`; prereg `2508c60` | `ee4777ba`; prereg `6e3a72c` |
+| Worker implementation | `docker_eval_worker.py` SHA-256 `6dbb7aa1…` | Same path SHA-256 `127bd753…`, with live instrumentation |
+| Installed harness | `swegemma 0.2.10`; frozen 642 installed-package file hashes | Same package version; all 642 hashes still match the confirmatory frozen manifest. No separate upstream harness Git commit was recorded. |
+| Nominal budgets | 300 s agent, 100 billed tools, 50 LLM turns, 60 s per command, 900 s supervisor | Same |
+| Counting | `SwegemmaContext` increments billed calls on budgeted tools and LLM turns on model events; free submit/status calls do not consume tool budget | Same harness counters; snapshot Docker exec bypasses them |
+| Sampling file | 0.2 temperature, 0.95 top-p, seed 42, 16,384 max output tokens, 4,096 thinking budget, `include_thoughts: true` | Byte-identical effective sampling-file hash and values |
+| **Actual model request** | 84/84 first A0 requests had `chat_template_kwargs.enable_thinking=true` and `thinking_token_budget=4096` | **0/84** first A0 requests had either field; they also lacked `reasoning` in all 84 first responses |
+| vLLM | Same base model, 32,768 context, 0.60 GPU fraction, `max-num-seqs=1`, 4,096 batched tokens, Gemma 4 tool/reasoning parsers, FlashInfer sampler disabled; main/tool LoRAs | Same core flags; additional DPO LoRA loaded (even in A0 slots). Confirmatory A0 has 64 server-start logs across the interleaved run; fresh batch has 9 starts in one append-only server log. |
+| Snapshot hook | None | After each edit/write/shell tool, direct Docker `git diff` capture; mean recorded snapshot time 12.3 s per A0 attempt (max 50.4 s). It is not a billed tool call. |
+
+The cause of the missing thinking fields is localized. `LiveRecorder.wrap_model`
+stores an instance-level async wrapper that closes over the **original bound**
+`LiteLlm.generate_content_async`. The ADK submission resolver then shallow-copies
+the model and attaches thinking/seed `extra_body` to the **clone**. The copied
+instance wrapper still invokes the original model, whose `extra_body` has no
+thinking settings. A CPU-only reproduction showed: clone has
+`enable_thinking=true` and budget 4096, original does not, and the cloned
+wrapper still calls the original. Saved HTTP requests independently confirm
+the omission: all 84 first confirmatory-A0 requests include the fields, and
+none of the 84 first fresh-A0 requests do. First-response median completion
+tokens fell from 162.5 to 22; reasoning content was present in 84/84 old and
+0/84 fresh first responses. Across attempts, mean completion tokens fell from
+5,445 to 2,422, while mean turns rose from 23.1 to 39.7. This explains the
+direction and much of the size of the wall-time/turn-cap shift. Different
+sampled trajectories and server lifecycle may also contribute; the saved data
+do not isolate their effects.
+
+The snapshot hook tries to exclude its time from the budget by advancing
+`context.agent_start_time`. It also tries to reschedule a 300-second
+`asyncio.timeout` through `swegemma.evaluate.asyncio`, but the hard deadline
+used by `run_agent_sandbox` lives in `swegemma.harness.agent_runner.asyncio`.
+That proxy does **not** reschedule the hard timeout. Thus snapshot work remains
+inside the hard 300-second wall deadline and the 900-second supervisor, even
+though the context's soft elapsed-time check discounts it. Snapshot duration
+was recorded for 79 A0 attempts; missing manifests are not treated as zero.
+This asymmetry is another protocol deviation, but it would tend to increase
+wall-time pressure, opposite the observed collapse in timeout count.
+
+### Three matched trace endings
+
+Each pair below is an old A0 wall timeout **with a nonempty extracted patch**
+versus a fresh A0 run ending at the 50-turn cap **without a patch**. These are
+the final five saved ATIF agent events in chronological order. The full event
+arguments, observations, and outputs remain in the linked traces.
+
+| Task / event | Confirmatory A0 | Fresh A0 |
+|---|---|---|
+| `rich_3930` 1 | #10 `read_file rich/cells.py`, ok | #48 `grep -r "grapheme" /workspace/rich/cells.py`, exit 1 |
+| 2 | #11 `edit_file rich/cells.py`, ok | #49 same grep, exit 1 |
+| 3 | #12 `read_file rich/cells.py`, ok | #50 same grep, exit 1 |
+| 4 | #13 `edit_file rich/cells.py`, ok | #51 same grep, exit 1 |
+| 5 | #14 `edit_file rich/cells.py`, ok; then wall timeout, 2,309-byte patch | #52 same grep rejected by turn-budget check; zero-byte patch |
+| `fastapi_14371` 1 | #15 `read_file fastapi/params.py`, ok | #48 `pytest ... -k "validation_alias" --no-xfail-first`, exit 4 |
+| 2 | #16 `read_file fastapi/params.py`, ok | #49 same pytest command, exit 4 |
+| 3 | #17 `edit_file fastapi/dependencies/utils.py`, ok | #50 same pytest command, exit 4 |
+| 4 | #18 `pytest -v tests/test_request_params/test_body/test_list.py`, exit 0 | #51 same pytest command, exit 4 |
+| 5 | #19 `find tests/test_request_params -name "*.py"`, exit 0; then wall timeout, 920-byte patch | #52 same pytest command rejected by turn-budget check; zero-byte patch |
+| `rich_3063` 1 | #16 `write_file 「repro_trailing.py」`, ok | #48 `python3 -c ...` markup probe, exit 0 |
+| 2 | #17 `write_file repro_trailing.py`, ok | #49 same probe, exit 0 |
+| 3 | #18 `python3 repro_trailing.py`, exit 0 | #50 same probe, exit 0 |
+| 4 | #19 `write_file repro_escape.py`, ok | #51 same probe, exit 0 |
+| 5 | #20 `python3 repro_escape.py`, exit 0; then wall timeout, 3,402-byte patch | #52 same probe rejected by turn-budget check; zero-byte patch |
+
+Trace pairs: [`rich_3930` old](../confirmatory/A0/rich_3930/attempt-0/evaluation/tasks/rich_3930/traces/trace_rich_3930.json) / [fresh](attempts/rich_3930/A0/evaluation/traces/trace_rich_3930.json), [`fastapi_14371` old](../confirmatory/A0/fastapi_14371/attempt-0/evaluation/tasks/fastapi_14371/traces/trace_fastapi_14371.json) / [fresh](attempts/fastapi_14371/A0/evaluation/traces/trace_fastapi_14371.json), [`rich_3063` old](../confirmatory/A0/rich_3063/attempt-0/evaluation/tasks/rich_3063/traces/trace_rich_3063.json) / [fresh](attempts/rich_3063/A0/evaluation/traces/trace_rich_3063.json).
+
+**Verdict:** `dpo_live` did **not** meet “every other setting identical to the
+confirmatory A0.” The material deviations are the dropped thinking parameters,
+the model-wrapping/telemetry path that caused them, the snapshot hook's
+non-equivalent deadline accounting, the extra loaded DPO adapter and different
+server restart pattern. The same nominal YAML, temperature, seed, output cap,
+tool/turn caps, model weights, and installed harness are not sufficient to make
+these runs protocol-equivalent. The fresh A0-versus-DPO comparison still shares
+the same flawed request path within its own run; it cannot support a claim that
+DPO behaves as preregistered under the confirmatory A0 configuration.
 
 ## Pilot configuration note
 
@@ -83,6 +194,10 @@ generation.
 
 ## Preregistered primary outcome
 
+**Protocol caveat:** The arithmetic below compares the two fresh arms as they
+actually ran, with thinking parameters absent from both. It does not test the
+preregistered comparison under the confirmatory A0 request configuration.
+
 On the 79 interpretable pairs, A0 alone solved `fastapi_11194`, `fastapi_9555`,
 and `rich_3043`; DPO alone solved `fastapi_14349`. The other 75 pairs were
 concordant. The paired DPO-minus-A0 solve-rate difference is **−2.53 percentage
@@ -124,6 +239,10 @@ descriptive cross-run comparisons with different controller/serving conditions,
 **not** substitutes for the paired fresh A0 control or additional tests.
 
 ## Confirmatory process hypotheses
+
+**Protocol caveat:** The recorded contrasts below are retained for audit, but
+the missing thinking parameters invalidate their interpretation as tests of
+the preregistered confirmatory process hypotheses.
 
 The pilot values were hypothesis-generating: generation-time ratio DPO/A0 0.72,
 call ratio 1.28, edit-action shares 19.0% versus 14.8%, and explicit-submit

@@ -64,7 +64,9 @@ def install(out):
     lock = threading.Lock()
     latest_metrics = {"time": None, "running": None, "waiting": None,
                       "error": "metrics sampler starting"}
-    live = __import__("os").environ.get("COSTAGENT_DPO_LIVE") == "1"
+    environ = __import__("os").environ
+    live_v2 = environ.get("COSTAGENT_DPO_LIVE_V2") == "1"
+    live = environ.get("COSTAGENT_DPO_LIVE") == "1" or live_v2
 
     def sample_metrics():
         nonlocal latest_metrics
@@ -109,6 +111,18 @@ def install(out):
         request_row = {"number": number, "body": request_body}
         with (out / "model_requests.jsonl").open("a") as f:
             f.write(json.dumps(request_row) + "\n")
+            f.flush()
+        if live_v2:
+            enabled = (request_body.get("chat_template_kwargs") or {}).get("enable_thinking")
+            budget = request_body.get("thinking_token_budget")
+            if enabled is not True or budget != 4096:
+                violation = {"number": number, "time": time.time(),
+                             "model": request_body.get("model"),
+                             "enable_thinking": enabled,
+                             "thinking_token_budget": budget,
+                             "error": "Every v2 model request must enable thinking with budget 4096"}
+                _append(out / "runtime_guard_violation.jsonl", violation)
+                raise RuntimeError(violation["error"])
         request_started = time.time()
         monotonic_started = time.perf_counter()
         metrics_age = (request_started - metrics["time"]
