@@ -429,6 +429,9 @@ def validate_smokes():
 
 
 def run_attempt(server, tid, arm, smoke=False):
+    verifier_failure = OUT / "snapshot_verifier_failure.json"
+    if verifier_failure.exists():
+        raise RuntimeError(f"CPU snapshot verifier failed: {verifier_failure.read_text()}")
     name = f"smoke-v2-{tid}" if smoke else tid
     path = OUT / "attempts" / name / arm
     done = path / "done.json"
@@ -495,6 +498,8 @@ def run_attempt(server, tid, arm, smoke=False):
     last_resource_check = 0
     try:
         while proc.poll() is None:
+            if verifier_failure.exists():
+                raise RuntimeError(f"CPU snapshot verifier failed: {verifier_failure.read_text()}")
             if STOP or time.monotonic() > deadline:
                 try:
                     os.killpg(proc.pid, signal.SIGINT)
