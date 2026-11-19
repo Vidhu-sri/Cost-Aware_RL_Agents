@@ -116,6 +116,18 @@ class DpoLiveV2Tests(unittest.IsolatedAsyncioTestCase):
             row = json.loads((Path(td) / "deadline_adjustments.jsonl").read_text().splitlines()[0])
             self.assertEqual(row["status"], "already_expired")
 
+    async def test_post_submission_telemetry_does_not_extend_finished_timeout(self):
+        with tempfile.TemporaryDirectory() as td:
+            recorder = LiveRecorder(Path(td))
+            async with asyncio.timeout(300) as timeout:
+                pass
+            recorder.timeout_obj = timeout
+            recorder.exclude_from_budget(0.007)
+            self.assertFalse((Path(td) / "deadline_guard_violation.jsonl").exists())
+            row = json.loads((Path(td) / "deadline_adjustments.jsonl").read_text().splitlines()[0])
+            self.assertEqual(row["status"], "already_finished")
+            self.assertEqual(row["excluded_seconds"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

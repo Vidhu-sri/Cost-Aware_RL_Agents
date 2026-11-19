@@ -456,6 +456,28 @@ def run_attempt(server, tid, arm, smoke=False):
             monitor = json.loads(monitor_path.read_text())
             if monitor.get("remaining_owned_ids"):
                 raise RuntimeError(f"Terminal attempt has owned containers remaining: {path}")
+            guard_note = None
+            guard_path = path / "evaluation/deadline_guard_violation.jsonl"
+            if guard_path.exists():
+                violations = [json.loads(line) for line in guard_path.read_text().splitlines() if line]
+                outcome = json.loads(outcome_path.read_text())
+                known_post_completion = (violations and all(
+                    v.get("error") == "RuntimeError: Cannot change state of finished Timeout"
+                    for v in violations))
+                if not (known_post_completion and outcome.get("patch_submission_seconds") is not None
+                        and not outcome.get("agent_error")):
+                    raise RuntimeError(f"Unresolved deadline guard violation: {guard_path}")
+                requests = [json.loads(line)["body"] for line in
+                            (path / "evaluation/model_requests.jsonl").read_text().splitlines() if line]
+                if not requests or any(
+                        (body.get("chat_template_kwargs") or {}).get("enable_thinking") is not True
+                        or body.get("thinking_token_budget") != 4096 for body in requests):
+                    raise RuntimeError(f"Thinking guard failed during recovery: {path}")
+                guard_note = "telemetry attempted reschedule after successful agent timeout context exit"
+                event("recovered_finished_timeout_guard", task_id=tid, arm=arm,
+                      guard_path=str(guard_path), violations=len(violations))
+            if (path / "evaluation/runtime_guard_violation.jsonl").exists():
+                raise RuntimeError(f"Model request guard violation: {path}")
             # The prior controller stopped during post-processing, after the
             # harness wrote a terminal outcome and cleaned its container. Recover
             # that record; never spend another model run on this task/arm.
@@ -467,6 +489,9 @@ def run_attempt(server, tid, arm, smoke=False):
                         "elapsed_controller_seconds": None,
                         "recovered_terminal_record": True,
                         "telemetry_source_anomaly": "recovered after controller post-processing failure"})
+            if guard_note:
+                row["deadline_guard_false_positive"] = guard_note
+                row["original_guard_record"] = str(guard_path)
             atomic(done, row)
             event("attempt_recovered_terminal", **row)
             save_csv()

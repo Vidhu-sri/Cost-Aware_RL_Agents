@@ -99,6 +99,15 @@ class LiveRecorder:
                 "post_expiry_overhead_seconds": elapsed,
                 "status": "already_expired"})
             return
+        # A successful explicit submission may finish the agent's timeout
+        # context before a trailing telemetry callback runs. There is no
+        # remaining agent budget to extend after that context has exited.
+        if getattr(getattr(self.timeout_obj, "_state", None), "value", None) == "finished":
+            _append(self.result_dir / "deadline_adjustments.jsonl", {
+                "time": time.time(), "excluded_seconds": 0.0,
+                "post_completion_overhead_seconds": elapsed,
+                "status": "already_finished"})
+            return
         try:
             before = self.timeout_obj.when()
             if before is None:
@@ -115,6 +124,12 @@ class LiveRecorder:
                     "time": time.time(), "excluded_seconds": 0.0,
                     "post_expiry_overhead_seconds": elapsed,
                     "status": "expired_during_adjustment"})
+                return
+            if getattr(getattr(self.timeout_obj, "_state", None), "value", None) == "finished":
+                _append(self.result_dir / "deadline_adjustments.jsonl", {
+                    "time": time.time(), "excluded_seconds": 0.0,
+                    "post_completion_overhead_seconds": elapsed,
+                    "status": "finished_during_adjustment"})
                 return
             _append(self.result_dir / "deadline_guard_violation.jsonl", {
                 "time": time.time(), "error": f"{type(e).__name__}: {e}",
