@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import argparse
-import datetime
 import fcntl
 import hashlib
 import json
@@ -84,6 +83,11 @@ def event(name, **fields):
 def on_signal(*_):
     global STOP
     STOP = True
+
+
+def interrupted_archive_path(tid, arm):
+    return (OUT / "interrupted_attempts" / tid / arm /
+            datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
 
 
 def adapter_identity():
@@ -527,8 +531,7 @@ def run_attempt(server, tid, arm, smoke=False):
                 if c.labels.get("gemma.local.verification.run", "").startswith(label_prefix)]
             if owned:
                 raise RuntimeError(f"Interrupted slot still owns containers: {owned}")
-            archive = (OUT / "interrupted_attempts" / tid / arm /
-                       datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+            archive = interrupted_archive_path(tid, arm)
             archive.parent.mkdir(parents=True, exist_ok=True)
             path.rename(archive)
             event("replacement_after_crash_no_terminal", task_id=tid, arm=arm,

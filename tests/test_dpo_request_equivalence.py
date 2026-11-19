@@ -25,3 +25,11 @@ def test_nested_prompt_or_tool_change_is_rejected():
 def test_missing_field_is_rejected():
     assert request_differences({"model": "dpo_lora"},
                                {"model": "main_lora", "seed": 42}) == ["$.model", "$.seed"]
+
+
+def test_interrupted_slot_archive_path_is_constructible():
+    from run_dpo_live_v2 import interrupted_archive_path
+    path = interrupted_archive_path("rich_2725", "DPO")
+    assert path.parent.name == "DPO"
+    assert path.parent.parent.name == "rich_2725"
+    assert path.name.endswith("Z")
