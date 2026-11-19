@@ -257,3 +257,9 @@ A separate exploratory, descriptive analysis may compare confirmatory A0 with
 `dpo_live` A0 on the same tasks: paired solves and exact McNemar, completion
 tokens, and termination reasons. It must be labeled an accidental thinking-off
 contrast confounded by snapshot-time accounting. It is not a v2 arm analysis.
+
+## Fixed stop rule (registered before arm results are examined)
+
+If all 168 attempts are not terminal by 2026-11-20 14:00 IST, stop at the next
+task boundary and analyse only tasks where both arms are terminal. The stop time
+is fixed in advance and does not depend on outcomes.
