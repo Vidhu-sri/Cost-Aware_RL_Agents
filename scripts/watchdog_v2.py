@@ -169,6 +169,10 @@ def check(state: dict) -> dict:
         raise SystemExit(0)
     if ALERT.exists():
         raise SystemExit(2)
+    violations = [p for p in (OUT / "attempts").glob(
+        "*/DPO/evaluation/runtime_guard_violation.jsonl") if p.stat().st_size]
+    if violations:
+        raise RuntimeError(f"DPO model-request guard violation; refusing restart: {violations[0]}")
     if now >= DEADLINE:
         # The controller finishes any task already begun, then exits at its next boundary.
         log("FIXED_STOP", "deadline reached; waiting for controller task-boundary exit")
