@@ -1,0 +1,235 @@
+{
+  "scope": "primary",
+  "n_tasks": 48,
+  "task_ids": [
+    "fastapi_14609",
+    "fastapi_14794",
+    "fastapi_14986",
+    "rich_2725",
+    "rich_3469",
+    "fastapi_15030",
+    "fastapi_14349",
+    "fastapi_14186",
+    "fastapi_14791",
+    "rich_3905",
+    "fastapi_14605",
+    "fastapi_14361",
+    "rich_3934",
+    "fastapi_14077",
+    "fastapi_15588",
+    "fastapi_13207",
+    "fastapi_14512",
+    "rich_3043",
+    "fastapi_14873",
+    "rich_3468",
+    "rich_3675",
+    "requests_7433",
+    "fastapi_13537",
+    "rich_3130",
+    "rich_3180",
+    "requests_7502",
+    "fastapi_15280",
+    "fastapi_14266",
+    "fastapi_11355",
+    "rich_4075",
+    "fastapi_14482",
+    "fastapi_15589",
+    "requests_6757",
+    "fastapi_14463",
+    "rich_3942",
+    "fastapi_14262",
+    "fastapi_15800",
+    "fastapi_14430",
+    "fastapi_15763",
+    "rich_3471",
+    "fastapi_14303",
+    "fastapi_13920",
+    "fastapi_14851",
+    "fastapi_14371",
+    "fastapi_14459",
+    "rich_3777",
+    "rich_3006",
+    "requests_7505"
+  ],
+  "control": "existing confirmatory A0",
+  "seed": 20261119,
+  "permutation_resamples": 20000,
+  "bootstrap_resamples": 20000,
+  "primary_mcnemar_descriptive": {
+    "interpretable_pairs": 44,
+    "unknown_pair_ids": [
+      "fastapi_14186",
+      "fastapi_14262",
+      "fastapi_14609",
+      "fastapi_15030"
+    ],
+    "both_solved_ids": [
+      "fastapi_14794",
+      "rich_2725",
+      "rich_3905",
+      "fastapi_14605",
+      "fastapi_14361",
+      "fastapi_14077",
+      "fastapi_14873",
+      "fastapi_13537",
+      "fastapi_14463",
+      "fastapi_14303",
+      "rich_3006"
+    ],
+    "DPO_only_ids": [
+      "fastapi_14791",
+      "rich_3043",
+      "fastapi_15589"
+    ],
+    "A0_only_ids": [],
+    "neither_solved": 30,
+    "DPO_solved_all": 14,
+    "A0_solved_all": 11,
+    "p_exact_two_sided_descriptive": 0.25
+  },
+  "H1_generation_seconds_per_turn": {
+    "n": 48,
+    "estimate_ratio": 0.9851273627902472,
+    "ci95_ratio": [
+      0.9178383781924172,
+      1.0543055997073338
+    ],
+    "p_one_sided": 0.3352332383380831,
+    "missing_ids": []
+  },
+  "H2_tool_calls": {
+    "n": 48,
+    "estimate_ratio": 1.0570453856687818,
+    "ci95_ratio": [
+      0.991624694791109,
+      1.1297206517642528
+    ],
+    "p_one_sided": 0.05064746762661867
+  },
+  "H3_edit_share": {
+    "n": 48,
+    "estimate_difference": 0.028156261251332835,
+    "ci95_difference": [
+      -0.001087547935054837,
+      0.05896915204727935
+    ],
+    "p_one_sided": 0.03584820758962052
+  },
+  "H4_explicit_submit": {
+    "A0_submit": 17,
+    "DPO_submit": 20,
+    "discordant": {
+      "DPO_only": [
+        "fastapi_14791",
+        "rich_3043",
+        "fastapi_15800",
+        "fastapi_14371"
+      ],
+      "A0_only": [
+        "fastapi_15030"
+      ],
+      "both": [
+        "fastapi_14794",
+        "fastapi_14986",
+        "rich_2725",
+        "rich_3905",
+        "fastapi_14605",
+        "fastapi_14361",
+        "fastapi_14077",
+        "fastapi_15588",
+        "rich_3675",
+        "requests_7433",
+        "fastapi_13537",
+        "requests_6757",
+        "fastapi_14463",
+        "fastapi_15763",
+        "rich_3471",
+        "rich_3006"
+      ],
+      "neither": [
+        "fastapi_14609",
+        "rich_3469",
+        "fastapi_14349",
+        "fastapi_14186",
+        "rich_3934",
+        "fastapi_13207",
+        "fastapi_14512",
+        "fastapi_14873",
+        "rich_3468",
+        "rich_3130",
+        "rich_3180",
+        "requests_7502",
+        "fastapi_15280",
+        "fastapi_14266",
+        "fastapi_11355",
+        "rich_4075",
+        "fastapi_14482",
+        "fastapi_15589",
+        "rich_3942",
+        "fastapi_14262",
+        "fastapi_14430",
+        "fastapi_14303",
+        "fastapi_13920",
+        "fastapi_14851",
+        "fastapi_14459",
+        "rich_3777",
+        "requests_7505"
+      ]
+    },
+    "p_one_sided": 0.1875
+  },
+  "holm_corrected_p": {
+    "H1_generation_seconds_per_turn": 0.375,
+    "H2_tool_calls": 0.151942402879856,
+    "H3_edit_share": 0.14339283035848208,
+    "H4_explicit_submit": 0.375
+  },
+  "found_then_lost_DPO": {
+    "valid_failed_attempts": 30,
+    "unique_snapshot_diffs": 94,
+    "found_then_lost_ids": [],
+    "pending_grade_ids": [],
+    "all_snapshot_grades_complete": true,
+    "proportion": 0.0,
+    "wilson_ci95": [
+      0.0,
+      0.11351339317396876
+    ],
+    "task_cluster_bootstrap_ci95": [
+      0.0,
+      0.0
+    ]
+  },
+  "timeout_with_pass_DPO": {
+    "solved": 14,
+    "timeout_with_pass": 3,
+    "ids": [
+      "fastapi_14873",
+      "fastapi_15589",
+      "fastapi_14303"
+    ],
+    "rate": 0.21428571428571427,
+    "wilson_ci95": [
+      0.07571386712693184,
+      0.47589230586600295
+    ]
+  },
+  "timeout_with_pass_A0": {
+    "solved": 11,
+    "timeout_with_pass": 2,
+    "ids": [
+      "fastapi_14873",
+      "fastapi_14303"
+    ],
+    "rate": 0.18181818181818182,
+    "wilson_ci95": [
+      0.05136768974608513,
+      0.4769805619608442
+    ]
+  },
+  "pilot40_overlap": {
+    "n": 0,
+    "ids": [],
+    "pilot_n": 40
+  }
+}
