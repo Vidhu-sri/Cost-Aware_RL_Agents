@@ -263,3 +263,32 @@ contrast confounded by snapshot-time accounting. It is not a v2 arm analysis.
 If all 168 attempts are not terminal by 2026-11-20 14:00 IST, stop at the next
 task boundary and analyse only tasks where both arms are terminal. The stop time
 is fixed in advance and does not depend on outcomes.
+
+## Prospective design amendment, 2026-11-19 (supersedes conflicting text above)
+
+This amendment was committed before examining any outcomes by arm. Seven
+non-smoke v2 attempts had terminal records at the pause; their existence was
+counted, but their arm-specific results were not examined. The watchdog and
+controller were stopped before this amendment; no further attempt may start
+until the request-equivalence gate below passes.
+
+- Run **DPO only** on the 84 frozen confirmatory task IDs, in the existing
+  seed-20261119 shuffled task order. Use one DPO attempt per task. The paired
+  control is the **existing confirmatory A0** attempt for the same task, not
+  a fresh v2 A0 attempt. The fresh v2 A0 attempts already completed are retained
+  and described separately, without using them as the primary control.
+- Before the next DPO attempt, compare the first model request from the new
+  DPO run with the first confirmatory A0 request for the same task, field by
+  field. The adapter is the only permitted difference. A missing request or
+  any other difference stops execution and is reported; no field is silently
+  normalized or waived.
+- H1 is generation seconds per turn, available in both runs. Completion
+  tokens per turn are reported for DPO only, descriptively; they are not a
+  paired H1 outcome.
+- The fixed stop is **2026-11-20 14:15 IST**, replacing the earlier 14:00
+  time. At the next task boundary after that time, stop DPO generation and
+  analyze only DPO tasks with terminal records paired to their existing
+  confirmatory A0 records. The stop time is independent of observed outcomes.
+
+All other preregistered DPO settings, snapshot and telemetry hooks, owned
+process monitoring, CPU verification, and replacement rule remain in force.
