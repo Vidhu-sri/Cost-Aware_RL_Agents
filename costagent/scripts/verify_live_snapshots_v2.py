@@ -41,7 +41,9 @@ def load_terminal_attempts():
     for marker in sorted((OUT / "attempts").glob("*/**/done.json")):
         try:
             row = json.loads(marker.read_text())
-            if row.get("smoke") is True or row.get("resolved") is not False:
+            # Unknown final grading (for example, pytest collection exit 2)
+            # still warrants snapshot verification when a trace contains diffs.
+            if row.get("smoke") is True or row.get("resolved") is True:
                 continue
             result_dir = Path(row["result_dir"])
             manifest = result_dir / "snapshot_manifest.jsonl"
