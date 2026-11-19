@@ -161,6 +161,19 @@ def launch(state: dict, count: int, reason: str) -> None:
         raise SystemExit(2)
 
 
+def restart_cooldown(state: dict, now: float) -> bool:
+    recent = [t for t in state.get("restart_times", []) if now - t < 3600]
+    state["restart_times"] = recent
+    if len(recent) >= 3:
+        alert("Three restarts occurred within 60 minutes; no further restarts", state)
+        raise SystemExit(2)
+    if len(recent) < 2:
+        return False
+    resume_at = min(recent) + 3600
+    log("COOLDOWN", f"two restarts within 60m; delaying next restart until epoch={resume_at:.0f}")
+    return True
+
+
 def check(state: dict) -> dict:
     count, latest = terminals()
     now = time.time()
@@ -196,7 +209,8 @@ def check(state: dict) -> dict:
         elif found:
             raise RuntimeError("recorded controller gone but another matching controller exists")
         else:
-            launch(state, count, "controller_not_alive")
+            if not restart_cooldown(state, now):
+                launch(state, count, "controller_not_alive")
     elif now - state["last_growth"] >= 25 * 60:
         log("STALL", f"terminal records unchanged for {int(now - state['last_growth'])}s count={count}")
         if not stop_controller(identity):
