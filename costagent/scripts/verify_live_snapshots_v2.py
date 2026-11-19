@@ -82,8 +82,12 @@ def existing_keys(index: Path):
                 output = row.get("captured_output", "")
                 retryable_collision = (row.get("status") == "infrastructure_error"
                                        and "result directory already exists" in output)
+                retryable_patch_arg = (row.get("status") == "infrastructure_error"
+                                       and row.get("runner_returncode") == 2
+                                       and row.get("test_exit_code") is None
+                                       and not output)
                 if (row.get("status") in {"complete", "could_not_interpret", "infrastructure_error"}
-                        and not retryable_collision):
+                        and not retryable_collision and not retryable_patch_arg):
                     result.add((row["task_id"], row["patch_sha256"]))
             except (ValueError, KeyError):
                 continue

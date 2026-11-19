@@ -636,6 +636,8 @@ def supervise(args, result_dir):
                "--run-id", args.run_id, "--task-id", args.task_id]
     if args.seed is not None:
         command.extend(["--seed", str(args.seed)])
+    if args.patch_path is not None:
+        command.extend(["--patch-path", args.patch_path])
     samples = []
     timed_out = False
     interrupted = False
