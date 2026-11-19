@@ -101,7 +101,10 @@ H1-H3 use 20,000 paired task sign-flip permutations and 20,000 paired task
 bootstrap draws, seed 20261119. H4 uses one-sided exact McNemar. None of the
 four hypotheses survives Holm correction. H1 uses the same trace-timestamp
 extraction for both runs; it is not a direct comparison of DPO HTTP telemetry
-to unavailable confirmatory A0 HTTP telemetry.
+to unavailable confirmatory A0 HTTP telemetry. The preregistered load-adjusted
+H1 model cannot be fit as specified: the existing confirmatory A0 traces did
+not record request-start running and waiting counts. No adjusted ratio is
+substituted or inferred from DPO-only metrics.
 
 Among 30 DPO attempts with valid failed or no-patch final verification, the
 CPU verifier completed all **94 unique non-empty** intermediate diffs. None
