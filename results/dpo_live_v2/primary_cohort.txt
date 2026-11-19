@@ -1,0 +1,57 @@
+# Frozen DPO live v2 primary cohort
+# Cutoff interpretation: 2026-11-19 14:15:00 IST (Asia/Kolkata).
+# Note: amended preregistration names 2026-11-20 14:15 IST; this 19 Nov
+# interpretation follows the subsequent user instruction that the 13:57
+# interim look preceded the stop and the run should continue past it.
+# First task boundary after cutoff: 2026-11-19T14:17:09.820102+05:30; task=requests_7505
+# Source: results/dpo_live_v2/progress.jsonl attempt_done records, DPO non-smoke.
+# Inclusion: DPO terminal event time <= boundary, inclusive.
+# n_tasks=48
+fastapi_14609
+fastapi_14794
+fastapi_14986
+rich_2725
+rich_3469
+fastapi_15030
+fastapi_14349
+fastapi_14186
+fastapi_14791
+rich_3905
+fastapi_14605
+fastapi_14361
+rich_3934
+fastapi_14077
+fastapi_15588
+fastapi_13207
+fastapi_14512
+rich_3043
+fastapi_14873
+rich_3468
+rich_3675
+requests_7433
+fastapi_13537
+rich_3130
+rich_3180
+requests_7502
+fastapi_15280
+fastapi_14266
+fastapi_11355
+rich_4075
+fastapi_14482
+fastapi_15589
+requests_6757
+fastapi_14463
+rich_3942
+fastapi_14262
+fastapi_15800
+fastapi_14430
+fastapi_15763
+rich_3471
+fastapi_14303
+fastapi_13920
+fastapi_14851
+fastapi_14371
+fastapi_14459
+rich_3777
+rich_3006
+requests_7505
