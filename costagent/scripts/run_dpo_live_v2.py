@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import argparse
+import datetime
 import fcntl
 import hashlib
 import json
@@ -499,7 +500,39 @@ def run_attempt(server, tid, arm, smoke=False):
             event("attempt_recovered_terminal", **row)
             save_csv()
             return row
-        raise RuntimeError(f"Incomplete attempt slot preserved; inspect before resume: {path}")
+        # Replacement is allowed only for a crash with no terminal record.
+        # Keep the entire partial slot as evidence and ensure neither its worker
+        # nor any of its labeled containers remains before starting a fresh one.
+        if not smoke and not outcome_path.exists() and not monitor_path.exists():
+            if any((path / "evaluation" / guard).exists() for guard in
+                   ("runtime_guard_violation.jsonl", "deadline_guard_violation.jsonl")):
+                raise RuntimeError(f"Guard violation in incomplete slot: {path}")
+            owner_path = path / "ownership.json"
+            if not owner_path.exists():
+                raise RuntimeError(f"Incomplete slot lacks worker ownership: {path}")
+            owner = json.loads(owner_path.read_text())
+            try:
+                worker = psutil.Process(int(owner["pid"]))
+                if abs(worker.create_time() - float(owner["create_time"])) < 0.02 and worker.is_running():
+                    raise RuntimeError(f"Owned worker still running: {owner['pid']}")
+            except psutil.NoSuchProcess:
+                pass
+            import docker
+            client = docker.from_env()
+            label_prefix = f"dpolivev2-{tid}-{arm}".replace("_", "-") + "-"
+            owned = [c.id for c in client.containers.list(
+                all=True, filters={"label": "gemma.local.verification.run"})
+                if c.labels.get("gemma.local.verification.run", "").startswith(label_prefix)]
+            if owned:
+                raise RuntimeError(f"Interrupted slot still owns containers: {owned}")
+            archive = (OUT / "interrupted_attempts" / tid / arm /
+                       datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            path.rename(archive)
+            event("replacement_after_crash_no_terminal", task_id=tid, arm=arm,
+                  preserved_partial=str(archive))
+        else:
+            raise RuntimeError(f"Incomplete attempt slot preserved; inspect before resume: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.mkdir()
     result_dir = path / "evaluation"
