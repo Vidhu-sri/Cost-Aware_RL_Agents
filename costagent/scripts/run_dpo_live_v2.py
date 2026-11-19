@@ -16,6 +16,7 @@ import sys
 import time
 import urllib.request
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import psutil
@@ -30,6 +31,8 @@ DPO = PKG / "artifacts/mixed-temperature-v1/dpo/epoch-005"
 WANT_WEIGHT = "0c5fe9518135b51ee846bad843a356f2026c99d5793082c93b8bba90e1a498a1"
 WANT_CONFIG = "2d24af75f2f30c2207966e7dedef68b18eccc20203c68a8907fe351883cebde8"
 WANT_ZIP = "8520c647932ce0d483202739ef3ce270583cf221312b17078917b395f1a0e148"
+ORIGINAL_PREREG_SHA256 = "f06aadea2b0e39c6cc8cc1f3a275375362994a22d4b599343ae62e8a535fa85b"
+FIXED_STOP_UTC = datetime(2026, 11, 20, 8, 30, tzinfo=timezone.utc).timestamp()
 STOP = False
 TOKENIZER = None
 
@@ -791,10 +794,14 @@ def main():
     }
     if manifest_path.exists():
         previous = json.loads(manifest_path.read_text())
-        if (previous.get("prereg_file_sha256") != manifest["prereg_file_sha256"]
+        if (previous.get("prereg_file_sha256") not in
+                (ORIGINAL_PREREG_SHA256, manifest["prereg_file_sha256"])
                 or previous.get("schedule_sha256") != schedule_hash
                 or previous.get("adapter", {}).get("weight_sha256") != identity["weight_sha256"]):
             raise RuntimeError("Existing run manifest does not match preregistration, schedule, or adapter")
+        if previous.get("prereg_file_sha256") == ORIGINAL_PREREG_SHA256:
+            previous["fixed_stop_amendment_sha256"] = manifest["prereg_file_sha256"]
+            previous["fixed_stop_utc"] = FIXED_STOP_UTC
         previous.setdefault("resume_history", []).append({
             "time": time.time(), "controller_commit": manifest["prereg_commit"],
             "runner_sha256": manifest["runner_sha256"],
@@ -826,6 +833,14 @@ def main():
             return
         done = 0
         for slot in schedule:
+            # Finish a task already underway, then stop before starting another.
+            markers = [OUT / "attempts" / slot["task_id"] / arm / "done.json"
+                       for arm in slot["arms"]]
+            if time.time() >= FIXED_STOP_UTC and not any(p.exists() for p in markers):
+                event("fixed_stop", deadline_utc=FIXED_STOP_UTC,
+                      terminal_records=sum(1 for p in (OUT / "attempts").glob("*/**/done.json")
+                                           if not p.parent.parent.name.startswith("smoke-")))
+                return
             for arm in slot["arms"]:
                 if STOP:
                     raise KeyboardInterrupt
