@@ -11,7 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 out = Path(os.environ['GDAC_STATUS_ROOT']) / 'results/dpo_live_v2'
-files = [Path(p) for p in glob.glob(str(out / 'attempts/*/*/done.json'))
+files = [Path(p) for p in glob.glob(str(out / 'attempts/*/DPO/done.json'))
          if not Path(p).parent.parent.name.startswith('smoke-')]
 rows = []
 for path in files:
@@ -26,7 +26,7 @@ last_text = (dt.datetime.fromtimestamp(last, ZoneInfo('Asia/Kolkata')).strftime(
 durations = [float(r['elapsed_controller_seconds']) / 60 for _, r in rows
              if isinstance(r.get('elapsed_controller_seconds'), (int, float))]
 mean = sum(durations) / len(durations) if durations else None
-eta = mean * max(0, 168 - count) if mean is not None else None
+eta = mean * max(0, 84 - count) if mean is not None else None
 restarts = 0
 log = out / 'WATCHDOG.log'
 if log.exists():
@@ -34,5 +34,5 @@ if log.exists():
 alert = ' ALERT' if (out / 'ALERT.txt').exists() else ''
 eta_text = f'{eta / 60:.1f}h' if eta is not None else 'unknown'
 mean_text = f'{mean:.1f}min' if mean is not None else 'unknown'
-print(f'{count}/168 last={last_text} mean={mean_text} ETA={eta_text} restarts={restarts}{alert}')
+print(f'{count}/84 DPO last={last_text} mean={mean_text} ETA={eta_text} restarts={restarts}{alert}')
 PY

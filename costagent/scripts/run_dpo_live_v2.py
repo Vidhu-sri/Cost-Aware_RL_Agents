@@ -33,7 +33,7 @@ WANT_WEIGHT = "0c5fe9518135b51ee846bad843a356f2026c99d5793082c93b8bba90e1a498a1"
 WANT_CONFIG = "2d24af75f2f30c2207966e7dedef68b18eccc20203c68a8907fe351883cebde8"
 WANT_ZIP = "8520c647932ce0d483202739ef3ce270583cf221312b17078917b395f1a0e148"
 ORIGINAL_PREREG_SHA256 = "f06aadea2b0e39c6cc8cc1f3a275375362994a22d4b599343ae62e8a535fa85b"
-FIXED_STOP_UTC = datetime(2026, 11, 20, 8, 30, tzinfo=timezone.utc).timestamp()
+FIXED_STOP_UTC = datetime(2026, 11, 20, 8, 45, tzinfo=timezone.utc).timestamp()
 STOP = False
 TOKENIZER = None
 
@@ -503,10 +503,12 @@ def run_attempt(server, tid, arm, smoke=False):
         # Replacement is allowed only for a crash with no terminal record.
         # Keep the entire partial slot as evidence and ensure neither its worker
         # nor any of its labeled containers remains before starting a fresh one.
-        if not smoke and not outcome_path.exists() and not monitor_path.exists():
+        if not smoke and not outcome_path.exists():
             if any((path / "evaluation" / guard).exists() for guard in
                    ("runtime_guard_violation.jsonl", "deadline_guard_violation.jsonl")):
                 raise RuntimeError(f"Guard violation in incomplete slot: {path}")
+            if monitor_path.exists() and json.loads(monitor_path.read_text()).get("remaining_owned_ids"):
+                raise RuntimeError(f"Interrupted slot still records owned containers: {path}")
             owner_path = path / "ownership.json"
             if not owner_path.exists():
                 raise RuntimeError(f"Incomplete slot lacks worker ownership: {path}")
@@ -544,6 +546,12 @@ def run_attempt(server, tid, arm, smoke=False):
                 "COSTAGENT_SUBMISSION": str(ROOT / "data/sample_submission"),
                 "COSTAGENT_DPO_LIVE_V2": "1", "COSTAGENT_DPO_LIVE_V2_ARM": arm,
                 "COSTAGENT_TEMPERATURE": "0.2", "PYTHONUNBUFFERED": "1"})
+    if arm == "DPO" and not smoke:
+        reference = (ROOT / "results/confirmatory/A0" / tid / "attempt-0/evaluation/tasks" /
+                     tid / "model_requests.jsonl")
+        if not reference.is_file() or not reference.read_text().splitlines():
+            raise RuntimeError(f"Missing confirmatory A0 first-request reference: {reference}")
+        env["COSTAGENT_DPO_REQUEST_REFERENCE"] = str(reference)
     label = f"dpolivev2-{('smoke-' if smoke else '')}{tid}-{arm}".replace("_", "-")
     task = next(json.loads(x) for x in (ROOT / "data/tasks.jsonl").read_text().splitlines()
                 if json.loads(x)["instance_id"] == tid)
@@ -794,7 +802,9 @@ def main():
     plan, schedule = frozen_schedule()
     if args.dry_run:
         print(json.dumps({"adapter": identity, "tasks": len(schedule),
-                          "attempts": 168, "smoke_ids": ["fastapi_14246", "rich_4070"],
+                          "attempts": 84, "arm": "DPO",
+                          "control": "existing confirmatory A0",
+                          "smoke_ids": ["fastapi_14246", "rich_4070"],
                           "first_slots": schedule[:3], "phase2_enabled": True}, indent=2))
         return
     OUT.mkdir(parents=True, exist_ok=True)
@@ -816,7 +826,8 @@ def main():
         "prereg_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "prereg_file_sha256": sha(ROOT / "prereg/DPO_LIVE_V2.md"),
         "source_commit": plan["source_commit"], "adapter": identity,
-        "schedule_sha256": schedule_hash, "attempt_target": 168,
+        "schedule_sha256": schedule_hash, "attempt_target": 84,
+        "control_source": "results/confirmatory/A0", "evaluation_arm": "DPO",
         "smoke_task_ids": ["fastapi_14246", "rich_4070"],
         "effective_settings": plan["effective_settings"],
         "server_script_sha256": sha(PKG / "scripts/serve_local.sh"),
@@ -835,6 +846,9 @@ def main():
         if previous.get("prereg_file_sha256") == ORIGINAL_PREREG_SHA256:
             previous["fixed_stop_amendment_sha256"] = manifest["prereg_file_sha256"]
             previous["fixed_stop_utc"] = FIXED_STOP_UTC
+        previous["attempt_target"] = 84
+        previous["control_source"] = "results/confirmatory/A0"
+        previous["evaluation_arm"] = "DPO"
         previous.setdefault("resume_history", []).append({
             "time": time.time(), "controller_commit": manifest["prereg_commit"],
             "runner_sha256": manifest["runner_sha256"],
@@ -843,7 +857,7 @@ def main():
         manifest = previous
     atomic(manifest_path, manifest)
     event("preflight_passed", adapter=identity, schedule_sha256=schedule_hash,
-          tasks=len(schedule), attempts=168)
+          tasks=len(schedule), attempts=84)
     server = None
     created = None
     smoke_passed = False
@@ -866,30 +880,19 @@ def main():
             return
         done = 0
         for slot in schedule:
-            # Finish a task already underway, then stop before starting another.
-            markers = [OUT / "attempts" / slot["task_id"] / arm / "done.json"
-                       for arm in slot["arms"]]
-            if time.time() >= FIXED_STOP_UTC and not any(p.exists() for p in markers):
+            marker = OUT / "attempts" / slot["task_id"] / "DPO" / "done.json"
+            if time.time() >= FIXED_STOP_UTC and not marker.exists():
                 event("fixed_stop", deadline_utc=FIXED_STOP_UTC,
-                      terminal_records=sum(1 for p in (OUT / "attempts").glob("*/**/done.json")
+                      terminal_records=sum(1 for p in (OUT / "attempts").glob("*/DPO/done.json")
                                            if not p.parent.parent.name.startswith("smoke-")))
                 return
-            for arm in slot["arms"]:
-                if STOP:
-                    raise KeyboardInterrupt
-                run_attempt(server, slot["task_id"], arm, smoke=False)
-                done += 1
-                prior_rows = [json.loads(p.read_text()) for p in
-                              (OUT / "attempts").glob("*/**/done.json")
-                              if not p.parent.parent.name.startswith("smoke-")]
-                event("batch_progress", completed=done, total=168,
-                      distinct_tasks=len({x["task_id"] for x in schedule[:(done + 1) // 2]}),
-                      resolved=sum(x.get("resolved") is True for x in prior_rows),
-                      unresolved=sum(x.get("resolved") is False for x in prior_rows),
-                      grading_errors=sum(x.get("resolved") is None for x in prior_rows),
-                      timeouts=sum(bool(x.get("agent_timeout")) for x in prior_rows),
-                      disk_free_bytes=__import__("shutil").disk_usage(ROOT).free)
-        event("batch_complete", completed=168)
+            if STOP:
+                raise KeyboardInterrupt
+            run_attempt(server, slot["task_id"], "DPO", smoke=False)
+            done += 1
+            event("batch_progress", completed=done, total=84,
+                  disk_free_bytes=__import__("shutil").disk_usage(ROOT).free)
+        event("batch_complete", completed=84)
     except BaseException as e:
         event("batch_stopped", error=f"{type(e).__name__}: {e}")
         raise

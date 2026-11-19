@@ -8,6 +8,7 @@ asynchronously so metrics collection does not delay model calls.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import threading
 import time
@@ -21,6 +22,24 @@ def _append(path: Path, value: dict) -> None:
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(value, ensure_ascii=False) + "\n")
         f.flush()
+
+
+def request_differences(left, right, path="$", missing=object()):
+    """Return every differing JSON field, including nested prompt and tools."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        differences = []
+        for key in sorted(set(left) | set(right)):
+            differences.extend(request_differences(
+                left.get(key, missing), right.get(key, missing), f"{path}.{key}", missing))
+        return differences
+    if isinstance(left, list) and isinstance(right, list):
+        differences = []
+        if len(left) != len(right):
+            differences.append(path + ".length")
+        for index, (a, b) in enumerate(zip(left, right)):
+            differences.extend(request_differences(a, b, f"{path}[{index}]", missing))
+        return differences
+    return [] if left == right else [path]
 
 
 def _usage(data: bytes) -> dict:
@@ -67,6 +86,7 @@ def install(out):
     environ = __import__("os").environ
     live_v2 = environ.get("COSTAGENT_DPO_LIVE_V2") == "1"
     live = environ.get("COSTAGENT_DPO_LIVE") == "1" or live_v2
+    reference_path = environ.get("COSTAGENT_DPO_REQUEST_REFERENCE")
 
     def sample_metrics():
         nonlocal latest_metrics
@@ -123,6 +143,31 @@ def install(out):
                              "error": "Every v2 model request must enable thinking with budget 4096"}
                 _append(out / "runtime_guard_violation.jsonl", violation)
                 raise RuntimeError(violation["error"])
+        if live_v2 and number == 1 and environ.get("COSTAGENT_DPO_LIVE_V2_ARM") == "DPO":
+            try:
+                if not reference_path:
+                    raise RuntimeError("DPO first-request reference was not configured")
+                reference = json.loads(Path(reference_path).read_text().splitlines()[0])["body"]
+                differences = request_differences(request_body, reference)
+                good = (differences == ["$.model"] and request_body.get("model") == "dpo_lora"
+                        and reference.get("model") == "main_lora")
+                digest = lambda body: hashlib.sha256(json.dumps(
+                    body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+                check = {"reference_path": reference_path, "differences": differences,
+                         "dpo_model": request_body.get("model"), "a0_model": reference.get("model"),
+                         "dpo_request_sha256": digest(request_body),
+                         "a0_request_sha256": digest(reference), "passed": good}
+                _append(out / "request_equivalence.jsonl", check)
+                if not good:
+                    _append(out / "runtime_guard_violation.jsonl", {
+                        "number": number, "error": "First DPO request differs from confirmatory A0 beyond adapter",
+                        "differences": differences})
+                    raise RuntimeError("First DPO request differs from confirmatory A0 beyond adapter")
+            except Exception as exc:
+                if not (out / "runtime_guard_violation.jsonl").exists():
+                    _append(out / "runtime_guard_violation.jsonl", {
+                        "number": number, "error": f"Request equivalence gate: {type(exc).__name__}: {exc}"})
+                raise
         request_started = time.time()
         monotonic_started = time.perf_counter()
         metrics_age = (request_started - metrics["time"]

@@ -19,7 +19,7 @@ OUT = ROOT / "results/dpo_live_v2"
 STATE = OUT / "watchdog_state.json"
 LOG = OUT / "WATCHDOG.log"
 ALERT = OUT / "ALERT.txt"
-DEADLINE = 1795163400.0  # 2026-11-20 14:00 Asia/Kolkata
+DEADLINE = 1795164300.0  # 2026-11-20 14:15 Asia/Kolkata
 PYTHON = "/home/mahesh/miniconda3/envs/gemma-harness/bin/python"
 SCRIPT = "costagent/scripts/run_dpo_live_v2.py"
 
@@ -38,7 +38,7 @@ def atomic(path: Path, data: dict) -> None:
 
 
 def terminals() -> tuple[int, float]:
-    paths = [p for p in (OUT / "attempts").glob("*/*/done.json")
+    paths = [p for p in (OUT / "attempts").glob("*/DPO/done.json")
              if not p.parent.parent.name.startswith("smoke-")]
     return len(paths), max((p.stat().st_mtime for p in paths), default=0.0)
 
@@ -164,8 +164,8 @@ def launch(state: dict, count: int, reason: str) -> None:
 def check(state: dict) -> dict:
     count, latest = terminals()
     now = time.time()
-    if count >= 168:
-        log("COMPLETE", "168 terminal records")
+    if count >= 84:
+        log("COMPLETE", "84 DPO terminal records")
         raise SystemExit(0)
     if ALERT.exists():
         raise SystemExit(2)
@@ -207,6 +207,11 @@ def main() -> None:
     lock = (OUT / "watchdog.lock").open("a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
+    if state.get("design") != "DPO-only-v2":
+        count, latest = terminals()
+        state.update({"design": "DPO-only-v2", "last_count": count,
+                      "last_growth": latest or time.time()})
+        atomic(STATE, state)
     log("START", f"watchdog pid={os.getpid()} interval=300s stall=1500s")
     while True:
         try:
