@@ -122,3 +122,22 @@ Two earlier incomplete derived drafts are retained as
 A0's per-task outcome join for H2, and the latter treated empty diffs as
 ungraded. Neither is used for interpretation. The full-84 analysis will be
 written to a different file and will not alter this frozen result.
+
+## Full-84 secondary analysis (completed after terminal records)
+This analysis uses all 84 DPO tasks paired with existing confirmatory A0. It is secondary to the frozen 48-task result and does not change it.
+- Interpretable pairs: 76/84; DPO passes 23, A0 passes 18; DPO-only 5, A0-only 0; descriptive exact McNemar p=0.0625.
+- H1_generation_seconds_per_turn: estimate=0.9770846240799974; one-sided p=0.24828758562071895; Holm p=0.7444127793610319.
+- H2_tool_calls: estimate=1.0236456123973239; one-sided p=0.24813759312034397; Holm p=0.7444127793610319.
+- H3_edit_share: estimate=0.016182138893769744; one-sided p=0.08939553022348883; Holm p=0.3575821208939553.
+- H4_explicit_submit: estimate=None; one-sided p=0.2744140625; Holm p=0.7444127793610319.
+- Found-then-lost: 0/54 valid failed DPO attempts; snapshot grades complete=True; Wilson CI=[0.0, 0.0664135880908964]; bootstrap CI=[0.0, 0.0].
+- DPO timeout-with-pass: 6/23; Wilson CI=[0.12548616044986347, 0.4647000483742537]. Pilot40 overlap=0/40.
+Full machine-readable output: `secondary_full84_analysis.json`.
+
+The detached CPU follower did not persist through the end of the agent batch;
+its last logged poll saw 73 terminals. After 84/84 terminal records and no
+pending non-empty snapshot grades were confirmed, the first manual CPU-only
+analysis invocation used the `gemma-harness` Python and stopped before analysis
+because that environment lacks SciPy (`ModuleNotFoundError`). It was rerun with
+the system Python used for the frozen primary analysis. No agent attempt,
+snapshot verification, or primary result was changed by this reporting delay.
