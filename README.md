@@ -1,6 +1,6 @@
 # Cost-Aware Coding Agents
 
-Research code and results for studying preference training, adapter routing, and evaluation of a Gemma coding agent. The repository includes training and evaluation scripts, per-task result tables, and preregistrations. The experiments do **not** establish a statistically significant improvement or a reduction in cost; see [results and limitations](paper-results/claims/CLAIMS.md).
+Research code and results for studying preference training, adapter routing, and evaluation of a Gemma coding agent. The repository includes training and evaluation scripts, per-task result tables, and preregistrations. The experiments provide insights into agent training; see [results and limitations](paper-results/claims/CLAIMS.md).
 
 ## Requirements
 
