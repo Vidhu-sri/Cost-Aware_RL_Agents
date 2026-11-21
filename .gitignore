@@ -38,3 +38,13 @@ costagent/logs/*.pid
 # Confirmatory execution logs
 /logs/confirmatory.log
 /logs/confirmatory.pid
+
+# Local historical logs, scratch backups and archived unrelated workstreams
+/baseline-kit/logs/
+/baseline-kit/training/archives/
+/baseline-kit/*.before-*
+/logs/
+/download.log
+/nohup.out
+/model-path.txt
+/abandoned-workstreams/
