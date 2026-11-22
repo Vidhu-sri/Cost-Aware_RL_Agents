@@ -1,6 +1,6 @@
 # Cost-Aware Coding Agents
 
-Research code and results for studying preference training, adapter routing, and evaluation of a Gemma coding agent. The repository includes training and evaluation scripts, per-task result tables, and preregistrations. The experiments provide insights into agent training; see [results and limitations](paper-results/claims/CLAIMS.md).
+Code and results for studying preference training, adapter routing, and evaluation of a Gemma coding agent. The repository includes training and evaluation scripts, per-task result tables, and preregistrations. The experiments provide insights into agent training; see [results and limitations](paper-results/claims/CLAIMS.md).
 
 ## Requirements
 
@@ -11,7 +11,7 @@ Research code and results for studying preference training, adapter routing, and
 
 ## Setup
 
-1. Clone this repository. The publisher harness is a pinned submodule; initialize it only if working with SWE-rebench:
+1. Clone this repository. The predeveloped harness is a pinned submodule; only initialize it, if working with SWE-rebench:
 
    ```bash
    git clone https://github.com/Vidhu-sri/Cost-Aware_RL_Agents.git
@@ -27,7 +27,7 @@ Research code and results for studying preference training, adapter routing, and
    python -m pip install -r costagent/requirements-train.txt
    ```
 
-   Install the competition's `swegemma`, `adk_submission`, Docker SDK, vLLM and their compatible dependencies in a **separate harness environment**, using the competition's published wheelhouse. Do not install the per-repository test dependencies into that environment. The historical harness used `swegemma 0.2.11`; the project does not include a complete, portable environment lockfile.
+   Install the `swegemma`, `adk_submission`, Docker SDK, vLLM and their compatible dependencies in a **separate harness environment**, using the competition's published wheelhouse. Do not install the per-repository test dependencies into that environment. The historical harness used `swegemma 0.2.11`; the project does not include a complete, portable environment lockfile.
 
 3. Obtain the model, adapters and data under their respective access terms. [ARTIFACTS.md](ARTIFACTS.md) records the adapter revision, dataset provenance and checksums. Put the competition bundle in `data/` with its published directory structure. Keep dataset gold patches and grading metadata outside the agent-visible environment. Set paths in a local copy of `costagent/config.env.example`; never commit credentials.
 
